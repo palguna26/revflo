@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+    container_name: quantum_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/quantum_db
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - APP_ENV=production
+    depends_on:
+      - mongo
+    networks:
+      - quantum_net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: quantum_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - quantum_net
+
+  mongo:
+    image: mongo:6.0
+    container_name: quantum_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - quantum_net
+
+networks:
+  quantum_net:
+    driver: bridge
+
+volumes:
+  mongo_data:

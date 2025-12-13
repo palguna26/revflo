@@ -1,0 +1,24 @@
+services:
+  # Backend
+  - type: web
+    name: revflo-backend
+    env: python
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+    startCommand: |
+      cd backend
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: MONGODB_DB
+        value: revflo_production
+      - key: API_PREFIX
+        value: /api
+      # Secrets should be added in Render Dashboard
+    autoDeploy: true
+
+  # Frontend (Static Site) - Note: better hosted on Vercel for free tier limits
+  # but can be here. We generally prefer Vercel for React.
+  # This file primarily configures the Backend for Render.
