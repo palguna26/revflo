@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.api.v1.endpoints import auth, issues, me, notifications, prs, repos, analytics, settings as repo_settings, ai_endpoints
+from app.api.v1.endpoints import auth, issues, me, notifications, prs, repos, analytics, settings as repo_settings, ai_endpoints, webhook
 
 # Placeholder for scheduler - will be implemented later
 from app.tasks.scheduler import start_scheduler, stop_scheduler
