@@ -121,25 +121,33 @@ async def get_recent_activity(current_user: User = Depends(get_current_user)):
         repo_info = repo_map.get(pr.repo_id)
         if not repo_info: continue
         
-        # Add Code Health Issues (High/Critical only for dashboard)
+        # Add Code Health Issues (Collect all, sort by severity later)
         for issue in pr.code_health:
-            if issue.severity in ["critical", "high"]:
-                # Dedup based on message and file
-                unique_key = f"{issue.message}-{issue.file_path}"
-                if unique_key in seen_hashes: continue
-                seen_hashes.add(unique_key)
-                
-                insights.append({
-                    "id": issue.id or str(ObjectId()),
-                    "type": "security" if "security" in issue.category.lower() else "optimization",
-                    "message": issue.message,
-                    "repo": f"{repo_info['owner']}/{repo_info['name']}",
-                    "severity": issue.severity,
-                    "file_path": issue.file_path
-                })
-                
-        # Limit to 5 top insights
-        if len(insights) >= 5: break
+            # Dedup based on message and file
+            unique_key = f"{issue.message}-{issue.file_path}"
+            if unique_key in seen_hashes: continue
+            seen_hashes.add(unique_key)
+            
+            # severity map for sorting
+            severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(issue.severity, 4)
+            
+            insights.append({
+                "id": issue.id or str(ObjectId()),
+                "type": "security" if "security" in str(issue.category).lower() else "optimization",
+                "message": issue.message,
+                "repo": f"{repo_info['owner']}/{repo_info['name']}",
+                "severity": issue.severity,
+                "file_path": issue.file_path,
+                "_rank": severity_rank
+            })
+            
+    # Sort by severity (Critical -> Low)
+    insights.sort(key=lambda x: x["_rank"])
+    
+    # Limit to 5 top insights and remove temp rank
+    insights = insights[:5]
+    for i in insights:
+        i.pop("_rank", None)
 
     return {
         "prs": pr_data,
