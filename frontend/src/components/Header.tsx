@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from '@/lib/api';
+import { api, API_BASE } from '@/lib/api';
 import { RepoSwitcher } from './RepoSwitcher';
 
 interface HeaderProps {
@@ -77,7 +77,7 @@ export const Header = ({ user, repos, loading }: HeaderProps) => {
             </DropdownMenu>
           ) : (
             <Button asChild variant="default" className="btn-hero">
-              <a href="/auth/github">
+              <a href={`${API_BASE}/auth/github/login`}>
                 <Github className="mr-2 h-4 w-4" />
                 Sign in with GitHub
               </a>

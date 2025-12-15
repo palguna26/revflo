@@ -8,6 +8,8 @@ const API_BASE =
       ? `https://${rawBase}` // Assume https if no schema but value exists
       : '/api'; // Fallback to proxy
 
+export { API_BASE };
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
