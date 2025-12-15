@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body
 from app.models.repo import Repo
 from app.models.user import User
 from app.api.v1.endpoints.me import get_current_user
+from app.core.security import decrypt_token
 
 router = APIRouter(prefix="/repos", tags=["repos"])
 
@@ -19,6 +20,14 @@ async def sync_repo_stats(repo_doc: Repo, access_token: str):
     Fetch fresh stats from GitHub and update local DB.
     Also recalculate health score based on local PR analysis.
     """
+    # Token passed in is now decrypted (if called correctly below) OR we assume caller handles it.
+    # Actually, looking at list_repos below, we pass current_user.access_token which IS encrypted.
+    # So we should decrypt it here or in caller. Let's do it in caller for clarity, OR here.
+    # To minimize changes, let's keep signature but assume caller passes decrypted, OR decrypt here.
+    # It's safer to decrypt at the usage point if we're not sure.
+    # BUT `list_repos` passes `current_user.access_token`. 
+    # Let's decrypt it in `list_repos` and pass the raw token here.
+    
     async with httpx.AsyncClient() as client:
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -75,12 +84,16 @@ async def list_repos(current_user: User = Depends(get_current_user)):
         {"repo_full_name": {"$in": current_user.managed_repos}}
     ).to_list()
     
+    
     if not current_user.access_token:
         # return cached if no token (shouldn't happen for logged in user)
         return repos
 
+    # Decrypt token once
+    raw_token = decrypt_token(current_user.access_token)
+
     # Sync concurrently
-    tasks = [sync_repo_stats(r, current_user.access_token) for r in repos]
+    tasks = [sync_repo_stats(r, raw_token) for r in repos]
     synced_repos = await asyncio.gather(*tasks)
     
     return synced_repos
@@ -112,10 +125,11 @@ async def list_available_repos(current_user: User = Depends(get_current_user)):
     
     async with httpx.AsyncClient() as client:
         # Fetch up to 100 repos sorted by updated time
+        raw_token = decrypt_token(current_user.access_token)
         resp = await client.get(
             "https://api.github.com/user/repos?sort=updated&per_page=100",
             headers={
-                "Authorization": f"Bearer {current_user.access_token}",
+                "Authorization": f"Bearer {raw_token}",
                 "Accept": "application/vnd.github+json",
             },
         )
@@ -170,11 +184,13 @@ async def add_repo(
             detail="full_name must be in the form 'owner/name'",
         )
 
+    raw_token = decrypt_token(access_token)
+
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"https://api.github.com/repos/{owner}/{name}",
             headers={
-                "Authorization": f"Bearer {access_token}",
+                "Authorization": f"Bearer {raw_token}",
                 "Accept": "application/vnd.github+json",
             },
         )
