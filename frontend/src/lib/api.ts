@@ -63,7 +63,7 @@ export const api = {
   },
 
   async regenerateChecklist(owner: string, repo: string, issueNumber: number): Promise<void> {
-    await request<void>(`/repos/${owner}/${repo}/issues/${issueNumber}/regenerate`, {
+    await request<void>(`/repos/${owner}/${repo}/issues/${issueNumber}/checklist`, {
       method: 'POST',
       body: JSON.stringify({}),
     });

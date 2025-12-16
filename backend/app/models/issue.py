@@ -41,6 +41,7 @@ class Issue(Document):
     checklist_summary: IssueChecklistSummary
     checklist: List[ChecklistItem] = []
     github_url: str
+    description: Optional[str] = None
 
     class Settings:
         name = "issues"
