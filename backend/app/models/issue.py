@@ -11,7 +11,7 @@ from pydantic import Field, BaseModel
 
 class ValidationResult(BaseModel):
     pr_number: int
-    status: Literal["passed", "failed", "pending", "skipped"]
+    status: Literal["passed", "failed", "pending", "skipped", "indeterminate"]
     evidence: Optional[str] = None
     reasoning: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -20,7 +20,7 @@ class ChecklistItem(BaseModel):
     id: str
     text: str
     required: bool
-    status: Literal["pending", "passed", "failed", "skipped"]
+    status: Literal["pending", "passed", "failed", "skipped", "indeterminate"]
     linked_tests: List[str] = []
     latest_validation: Optional[ValidationResult] = None
     validations: List[ValidationResult] = []

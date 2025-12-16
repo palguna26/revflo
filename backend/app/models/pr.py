@@ -41,7 +41,7 @@ class ChecklistItem(BaseModel):
     id: str
     text: str
     required: bool
-    status: Literal["pending", "passed", "failed", "skipped"]
+    status: Literal["pending", "passed", "failed", "skipped", "indeterminate"]
     linked_tests: List[str] = []
     evidence: Optional[str] = None
     reasoning: Optional[str] = None
@@ -79,6 +79,7 @@ class PullRequest(Document):
     # Analysis fields
     health_score: int = 0
     validation_status: Literal["pending", "validated", "needs_work"] = "pending"
+    block_reason: Optional[Literal["BLOCK_CHECKLIST_FAILED", "BLOCK_INDETERMINATE_EVIDENCE", "BLOCK_SECURITY_CRITICAL", "BLOCK_INSUFFICIENT_ISSUE_SPEC"]] = None
     revalidate_requested_at: Optional[datetime] = None
     recommended_for_merge: bool = False
     recommended_at: Optional[datetime] = None

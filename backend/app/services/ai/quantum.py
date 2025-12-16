@@ -15,20 +15,44 @@ class QuantumEngine:
 
     async def generate_checklist(self, title: str, body: str) -> List[Dict]:
         prompt = f"""
-        You are RevFlo's Issue Analyst.
-        User Issue: "{title}"
-        Description: "{body}"
-        
-        Task:
-        1. Understand the core problem.
-        2. Break it down into 3-6 actionable, technical acceptance criteria (Checklist).
-        3. Assign a Complexity Score (1-10) and Priority (Low/Medium/High/Critical).
-        
-        Output JSON:
+        You are a Senior Technical Lead acting as a strict requirements gatekeeper.
+
+        Your job is to convert a User Issue into a rigid, atomic, and verifiable checklist
+        that determines whether a Pull Request should be merged.
+
+        INPUT:
+        Issue Title: "{title}"
+        Issue Description: "{body}"
+
+        NON-NEGOTIABLE RULES:
+        1. Atomic: Each checklist item tests exactly ONE condition.
+        2. Verifiable: Each item must be provable by inspecting a code diff.
+        3. Traceable: Derive requirements ONLY from the Issue text.
+        4. Anti-Vagueness: Reject vague language unless tied to a measurable or structural condition.
+
+        CHECKLIST SELF-AUDIT (MANDATORY):
+        Before finalizing the checklist:
+        - Identify any implied requirements that are missing.
+        - Identify any items that are ambiguous or not directly testable.
+        - If ambiguity exists, explicitly add a checklist item noting the ambiguity.
+
+        FAIL-SAFE:
+        - If the Issue description lacks actionable technical detail, output:
+          "Issue description is insufficient for technical validation."
+
+        OUTPUT FORMAT (STRICT JSON):
         {{
-            "checklist": [{{"text": "...", "required": true}}],
-            "complexity": int,
-            "priority": "string"
+          "checklist": [
+            {{
+              "text": "Verify that [Component] [Action] when [Condition].",
+              "required": true
+            }}
+          ],
+          "audit_notes": [
+            "Requirement for error handling is implied but not explicitly stated."
+          ],
+          "complexity": <1-10>,
+          "priority": "Critical|High|Medium|Low"
         }}
         """
         
@@ -42,7 +66,9 @@ class QuantumEngine:
                 response_format={"type": "json_object"},
                 timeout=10.0 # 10s timeout
             )
-            return json.loads(res.choices[0].message.content).get("checklist", [])
+            # We only extract the checklist for now to maintain interface compatibility
+            data = json.loads(res.choices[0].message.content)
+            return data.get("checklist", [])
         except Exception as e:
             print(f"QuantumEngine Error: {e}")
             return []
