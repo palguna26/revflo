@@ -76,9 +76,9 @@ const Landing = () => {
             </Button>
 
             <Button asChild size="lg" variant="outline">
-              <Link to="/dashboard">
+              <a href={`${API_BASE}/auth/github/demo-login`}>
                 View Demo
-              </Link>
+              </a>
             </Button>
           </div>
         </div>

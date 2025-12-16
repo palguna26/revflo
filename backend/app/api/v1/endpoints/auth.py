@@ -159,6 +159,42 @@ async def github_callback(code: Optional[str] = None) -> Response:
     return response
 
 
+@router.get("/demo-login")
+async def demo_login() -> Response:
+    """
+    Log in as the demo user without OAuth.
+    """
+    demo_login = "demo-user"
+    user = await User.find_one(User.login == demo_login)
+    
+    if not user:
+        # Fallback: create if it doesn't exist, though script is preferred
+        # This ensures the button works even if script wasn't run
+        user = User(
+            login=demo_login,
+            avatar_url="https://ui-avatars.com/api/?name=Demo+User&background=0D8ABC&color=fff",
+            name="Demo User",
+            email="demo@revflo.ai",
+            access_token="demo-token-123",
+            managed_repos=[]
+        )
+        await user.save()
+
+    settings = get_settings()
+    response = RedirectResponse(f"{settings.frontend_url}/dashboard")
+    
+    # Session cookie: store only the user id
+    response.set_cookie(
+        "qr_session",
+        value=str(user.id),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/"
+    )
+    return response
+
+
 @router.post("/logout")
 async def logout(response: Response):
     """
