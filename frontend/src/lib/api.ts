@@ -11,12 +11,19 @@ const API_BASE =
 export { API_BASE };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('qr_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    (headers as any)['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+    headers,
     ...options,
   });
 
@@ -122,6 +129,7 @@ export const api = {
   },
 
   async logout(): Promise<void> {
+    localStorage.removeItem('qr_token');
     await request<void>('/auth/github/logout', { method: 'POST' });
   },
 

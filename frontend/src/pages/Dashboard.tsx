@@ -25,6 +25,15 @@ const Dashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Extract and save token if present (e.g. from demo login redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+          localStorage.setItem('qr_token', token);
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         const [userData, reposData] = await Promise.all([api.getMe(), api.getRepos()]);
         setUser(userData);
         setRepos(reposData);

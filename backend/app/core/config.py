@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(..., alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    environment: str = Field("production", alias="ENVIRONMENT")
 
     class Config:
         env_file = ".env"

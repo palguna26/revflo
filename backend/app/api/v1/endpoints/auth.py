@@ -145,7 +145,7 @@ async def github_callback(code: Optional[str] = None) -> Response:
     access_token = await _exchange_code_for_token(code)
     user = await _upsert_user_and_repos(access_token)
 
-    response = RedirectResponse(f"{settings.frontend_url}/auth/callback")
+    response = RedirectResponse(f"{settings.frontend_url}/auth/callback?token={user.id}")
     
     # Session cookie: store only the user id (hex string of ObjectId)
     response.set_cookie(
@@ -181,15 +181,16 @@ async def demo_login() -> Response:
         await user.save()
 
     settings = get_settings()
-    response = RedirectResponse(f"{settings.frontend_url}/dashboard")
+    response = RedirectResponse(f"{settings.frontend_url}/dashboard?token={user.id}")
     
     # Session cookie: store only the user id
+    is_prod = settings.environment == "production"
     response.set_cookie(
         "qr_session",
         value=str(user.id),
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
         path="/"
     )
     return response
@@ -200,11 +201,13 @@ async def logout(response: Response):
     """
     Clear the session cookie to log out the user.
     """
+    settings = get_settings()
+    is_prod = settings.environment == "production"
     response.delete_cookie(
         key="qr_session",
         httponly=True,
-        secure=True, 
-        samesite="none",
+        secure=is_prod, 
+        samesite="none" if is_prod else "lax",
         path="/"
     )
     return {"status": "logged_out"}

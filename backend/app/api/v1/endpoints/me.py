@@ -16,6 +16,13 @@ async def get_current_user(request: Request) -> User:
     Resolve the current user from the HTTP-only session cookie.
     """
     user_id = request.cookies.get("qr_session")
+    
+    # Fallback to Authorization header
+    if not user_id:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            user_id = auth_header.split(" ")[1]
+
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"

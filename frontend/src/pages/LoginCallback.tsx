@@ -15,6 +15,13 @@ const LoginCallback = () => {
       const timer = setTimeout(() => setShowSlowMessage(true), 3000);
 
       try {
+        // Extract and save token if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+          localStorage.setItem('qr_token', token);
+        }
+
         // Fetch user profile to verify authentication
         await api.getMe();
 
