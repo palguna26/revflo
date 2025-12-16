@@ -1,4 +1,4 @@
-name: QuantumReview CI
+name: Revflo CI
 
 on:
   push:
@@ -37,6 +37,7 @@ jobs:
         export MONGODB_URL="mongodb://localhost:27017/test_db"
         export GROQ_API_KEY="dummy"
         export GITHUB_TOKEN="dummy"
+        export PYTHONPATH=$PYTHONPATH:.
         pytest
 
   frontend-check:
