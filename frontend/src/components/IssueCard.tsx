@@ -16,14 +16,35 @@ const statusConfig = {
   completed: { icon: CheckCircle2, color: 'text-success', label: 'Completed' },
 };
 
-export const IssueCard = ({ issue, repoOwner, repoName }: IssueCardProps) => {
+export const IssueCard = ({ issue, repoOwner, repoName, compact }: IssueCardProps & { compact?: boolean }) => {
   const status = statusConfig[issue.status];
   const StatusIcon = status.icon;
   const { passed, failed, pending, total } = issue.checklist_summary || { passed: 0, failed: 0, pending: 0, total: 0 };
 
+  if (compact) {
+    return (
+      <Link to={`/repo/${repoOwner}/${repoName}/issues/${issue.issue_number}`} className="block group">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <StatusIcon className={`h-4 w-4 ${status.color}`} />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{issue.title}</span>
+              <span className="text-xs text-muted-foreground">#{issue.issue_number}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {failed > 0 && <span className="text-destructive font-medium">{failed} failing</span>}
+            {pending > 0 && <span>{pending} pending</span>}
+            {passed === total && total > 0 && <span className="text-success">All passing</span>}
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
   return (
     <Link to={`/repo/${repoOwner}/${repoName}/issues/${issue.issue_number}`}>
-      <Card className="glass-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
+      <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">

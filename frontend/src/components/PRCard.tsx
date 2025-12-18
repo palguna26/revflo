@@ -19,12 +19,41 @@ const statusConfig = {
   needs_work: { color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Needs Work' },
 };
 
-export const PRCard = ({ prNumber, title, author, healthScore, repoOwner, repoName, validationStatus }: PRCardProps) => {
+export const PRCard = ({ prNumber, title, author, healthScore, repoOwner, repoName, validationStatus, compact }: PRCardProps & { compact?: boolean }) => {
   const status = statusConfig[validationStatus] || statusConfig.pending;
+
+  if (compact) {
+    return (
+      <Link to={`/repo/${repoOwner}/${repoName}/prs/${prNumber}`} className="block group">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <GitPullRequest className={`h-4 w-4 ${status.color.split(' ')[1] || 'text-muted-foreground'}`} />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{title}</span>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>#{prNumber}</span>
+                <span>•</span>
+                <span>{author}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+              {status.label}
+            </Badge>
+            <div className="flex items-center gap-1 w-10 justify-end">
+              <TrendingUp className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs font-medium">{healthScore}</span>
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <Link to={`/repo/${repoOwner}/${repoName}/prs/${prNumber}`}>
-      <Card className="glass-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
+      <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">

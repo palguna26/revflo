@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, RefreshCw, TrendingUp, ArrowLeft, AlertTriangle, CheckCircle2, ShieldAlert, Ban, HelpCircle, AlertOctagon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExternalLink, RefreshCw, TrendingUp, ArrowLeft, AlertTriangle, CheckCircle2, ShieldAlert, Ban, HelpCircle, AlertOctagon, FileCode, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 import { SuggestedTestCard } from '@/components/SuggestedTestCard';
 import { useToast } from '@/hooks/use-toast';
@@ -23,49 +24,36 @@ const PRDetailPage = () => {
   useEffect(() => {
     const loadData = async () => {
       if (!owner || !repo || !prNumber) return;
-
       try {
         const [userData, reposData, prData] = await Promise.all([
           api.getMe(),
           api.getRepos(),
           api.getPR(owner, repo, parseInt(prNumber)),
         ]);
-
         setUser(userData);
         setRepos(reposData);
         setPr(prData);
       } catch (error) {
-        console.error('Failed to load PR data:', error);
+        console.error('Failed to load PR:', error);
       } finally {
         setLoading(false);
       }
     };
-
     loadData();
   }, [owner, repo, prNumber]);
 
   const handleRevalidate = async () => {
     if (!owner || !repo || !prNumber) return;
-
     setRevalidating(true);
     try {
       await api.revalidatePR(owner, repo, parseInt(prNumber));
-
-      toast({
-        title: 'PR Revalidation Started',
-        description: 'The PR is being revalidated. This may take a few moments.',
-      });
-
+      toast({ title: 'Revalidation Started', description: 'Analysis in progress...' });
       setTimeout(async () => {
         const updatedPR = await api.getPR(owner, repo, parseInt(prNumber));
         setPr(updatedPR);
       }, 2000);
-    } catch (error) {
-      toast({
-        title: 'Revalidation Failed',
-        description: 'Unable to revalidate PR. Please try again.',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Revalidation Failed', variant: 'destructive' });
     } finally {
       setRevalidating(false);
     }
@@ -74,43 +62,27 @@ const PRDetailPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container px-4 py-8">
-          <Skeleton className="h-32 rounded-lg mb-8" />
-          <Skeleton className="h-96 rounded-lg" />
+        <Header loading={true} />
+        <main className="container max-w-7xl px-4 py-8">
+          <Skeleton className="h-24 w-full mb-6" />
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4"><Skeleton className="h-96" /></div>
+            <div className="space-y-4"><Skeleton className="h-48" /></div>
+          </div>
         </main>
       </div>
     );
   }
 
-  if (!pr || !owner || !repo) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header user={user || undefined} repos={repos} />
-        <main className="container px-4 py-8">
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground">Pull request not found</p>
-          </Card>
-        </main>
-      </div>
-    );
-  }
-
-  const severityColors = {
-    critical: 'text-destructive',
-    high: 'text-destructive',
-    medium: 'text-warning',
-    low: 'text-muted-foreground',
-  };
+  if (!pr || !owner || !repo) return <div className="p-8 text-center">PR not found</div>;
 
   const isBlocked = pr.merge_decision === false;
-
   const getBlockReasonText = (reason: string | null | undefined) => {
     switch (reason) {
-      case 'BLOCK_CHECKLIST_FAILED': return "One or more mandatory requirements failed.";
-      case 'BLOCK_INDETERMINATE_EVIDENCE': return "Insufficient evidence to verify requirements.";
-      case 'BLOCK_SECURITY_CRITICAL': return "Critical security vulnerabilities detected.";
-      case 'BLOCK_INSUFFICIENT_ISSUE_SPEC': return "Issue description is too vague to enforce.";
+      case 'BLOCK_CHECKLIST_FAILED': return "Mandatory requirements failed.";
+      case 'BLOCK_INDETERMINATE_EVIDENCE': return "Insufficient evidence in diff.";
+      case 'BLOCK_SECURITY_CRITICAL': return "Critical security vulnerabilities.";
+      case 'BLOCK_INSUFFICIENT_ISSUE_SPEC': return "Issue spec too vague.";
       default: return "Merge criteria not met.";
     }
   };
@@ -121,7 +93,7 @@ const PRDetailPage = () => {
       return (
         <span>
           {parts[0]} <br />
-          <span className="font-bold text-destructive/80 mt-1 block">Consequence: {parts[1]}</span>
+          <span className="font-semibold text-destructive/90 mt-1 block text-xs uppercase tracking-wide">Consequence: {parts[1]}</span>
         </span>
       );
     }
@@ -129,220 +101,168 @@ const PRDetailPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <Header user={user || undefined} repos={repos} />
 
-      <main className="container px-4 py-8 max-w-6xl">
+      <main className="container max-w-7xl px-4 py-6">
+        {/* Breadcrumb & Meta */}
         <div className="mb-6">
-          <Link
-            to={`/repo/${owner}/${repo}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to {owner}/{repo}
+          <Link to={`/repo/${owner}/${repo}`} className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mb-3">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Repository
           </Link>
-        </div>
-
-        {/* Blocking Banner */}
-        {isBlocked && (
-          <div className="mb-8 p-4 rounded-lg bg-destructive/10 border border-destructive/50 flex items-start gap-4">
-            <Ban className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-destructive mb-1">MERGE BLOCKED</h3>
-              <p className="text-sm font-medium text-destructive/90">
-                {getBlockReasonText(pr.block_reason)}
-              </p>
-              {pr.block_reason === 'BLOCK_INSUFFICIENT_ISSUE_SPEC' && (
-                <p className="text-xs text-muted-foreground mt-2">Update the issue description with technical details and Regenerate Checklist.</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline" className="font-mono font-normal">#{pr.pr_number}</Badge>
+                <Badge variant={isBlocked ? "destructive" : "default"}>
+                  {isBlocked ? "Blocked" : pr.validation_status}
+                </Badge>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight mb-1">{pr.title}</h1>
+              <p className="text-sm text-muted-foreground">Authored by <span className="font-medium text-foreground">{pr.author}</span></p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleRevalidate} disabled={revalidating}>
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${revalidating ? 'animate-spin' : ''}`} />
+                Revalidate
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={pr.github_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-3.5 w-3.5" /> GitHub</a>
+              </Button>
+              {!isBlocked && pr.validation_status === 'validated' && (
+                <Button size="sm" className="bg-success hover:bg-success/90 text-white">
+                  <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Merge
+                </Button>
               )}
             </div>
           </div>
-        )}
-
-        {/* PR Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant={pr.validation_status === 'validated' ? 'default' : 'outline'}>
-                  {pr.validation_status}
-                </Badge>
-                <span className="text-sm text-muted-foreground">#{pr.pr_number}</span>
-              </div>
-              <h1 className="text-3xl font-bold mb-2">{pr.title}</h1>
-              <p className="text-muted-foreground">by {pr.author}</p>
-            </div>
-
-            <div className={`flex flex-col items-end gap-3 transition-opacity ${isBlocked ? 'opacity-50 grayscale' : ''}`}>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <span className="text-3xl font-bold text-primary">{pr.health_score}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {isBlocked ? "Health Score irrelevant (Blocked)" : "Health Score"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline">
-              <a
-                href={pr.github_url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                View on GitHub
-              </a>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={handleRevalidate}
-              disabled={revalidating}
-              title="Re-run validation"
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${revalidating ? 'animate-spin' : ''}`} />
-              Revalidate
-            </Button>
-
-            {!isBlocked && pr.validation_status === 'validated' && (
-              <Button className="btn-hero">
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Recommend Merge
-              </Button>
-            )}
-          </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Checklist Mapping */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Checklist Coverage</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+        <div className="grid lg:grid-cols-12 gap-8">
+          {/* Left Main Content (8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
+
+            {/* Blocking Banner */}
+            {isBlocked && (
+              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 flex items-start gap-3">
+                <Ban className="h-5 w-5 text-destructive mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-destructive">Merge Blocked by Policy</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{getBlockReasonText(pr.block_reason)}</p>
+                  {pr.block_reason === 'BLOCK_INSUFFICIENT_ISSUE_SPEC' && (
+                    <Button variant="link" className="h-auto p-0 text-destructive text-xs mt-2 underline">
+                      View Issue Details
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Tabs defaultValue="checklist" className="w-full">
+              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-6">
+                <TabsTrigger value="checklist" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-3 px-0">
+                  Checklist <Badge variant="secondary" className="ml-2">{pr.manifest?.checklist_items.length || 0}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="issues" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-3 px-0">
+                  Code Health <Badge variant={pr.code_health.length > 0 ? "destructive" : "secondary"} className="ml-2">{pr.code_health.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="tests" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-3 px-0">
+                  Suggested Tests
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="checklist" className="pt-6 space-y-4">
                 {pr.manifest?.checklist_items.map((item) => {
-                  const linkedTests = pr.test_results.filter(t =>
-                    t.checklist_ids.includes(item.id)
-                  );
-                  // Basic status mapping, but using item.status as authoritative if updated by AI
-                  const isPassed = item.status === 'passed'; // Validations might differ, but item.status is AI summary
+                  const isPassed = item.status === 'passed';
                   const isIndeterminate = item.status === 'indeterminate';
-
                   return (
-                    <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-                      {isPassed ? (
-                        <CheckCircle2 className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
-                      ) : isIndeterminate ? (
-                        <div title="Missing Evidence" className="mt-0.5 flex-shrink-0 cursor-help">
-                          <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                    <Card key={item.id} className={`transition-all ${!isPassed && !isIndeterminate ? 'border-destructive/30 bg-destructive/5' : ''}`}>
+                      <div className="flex items-start p-4 gap-3">
+                        <div className="mt-0.5">
+                          {isPassed ? <CheckCircle2 className="h-5 w-5 text-success" /> :
+                            isIndeterminate ? <HelpCircle className="h-5 w-5 text-muted-foreground" /> :
+                              <AlertOctagon className="h-5 w-5 text-destructive" />}
                         </div>
-                      ) : (
-                        <AlertOctagon className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium text-sm mb-1 ${isIndeterminate ? 'text-muted-foreground italic' : ''}`}>
-                          {item.text}
-                        </p>
-
-                        {isIndeterminate && (
-                          <p className="text-xs text-destructive mt-1 font-semibold">Blocked: Evidence missing in diff.</p>
-                        )}
-
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {linkedTests.length} test{linkedTests.length !== 1 ? 's' : ''} linked
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            {/* Code Health */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Code Health Issues</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {pr.code_health.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-4">
-                    No code health issues detected.
-                  </p>
-                ) : (
-                  pr.code_health.slice(0, 5).map((issue) => (
-                    <div key={issue.id} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${severityColors[issue.severity]}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-xs">
-                              {issue.severity}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {issue.category}
-                            </Badge>
-                          </div>
-
-                          {/* Consequence Parsing */}
-                          <p className="text-sm font-medium mb-1 whitespace-pre-line">
-                            {parseMessage(issue.message)}
-                          </p>
-
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {issue.file_path}
-                            {issue.line_number && `:${issue.line_number}`}
-                          </p>
-                          {issue.suggestion && (
-                            <p className="text-xs text-muted-foreground mt-2 border-l-2 border-primary/20 pl-2">
-                              {issue.suggestion}
-                            </p>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium leading-relaxed">{item.text}</p>
+                          {isIndeterminate && (
+                            <div className="mt-2 text-xs bg-background/50 p-2 rounded border border-border/50 text-muted-foreground">
+                              <strong>AI Note:</strong> Insufficient evidence in the diff to verify this item. Manual review required.
+                            </div>
                           )}
                         </div>
                       </div>
-                    </div>
+                    </Card>
+                  )
+                })}
+              </TabsContent>
+
+              <TabsContent value="issues" className="pt-6 space-y-4">
+                {pr.code_health.length === 0 ? (
+                  <div className="text-center py-12 border rounded-lg bg-muted/10 border-dashed">
+                    <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No code health issues found.</p>
+                  </div>
+                ) : (
+                  pr.code_health.map((issue) => (
+                    <Card key={issue.id} className="group hover:border-destructive/40 transition-colors">
+                      <CardContent className="p-4 flex gap-4">
+                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{issue.severity}</Badge>
+                            <span className="text-xs text-muted-foreground font-mono">{issue.file_path}:{issue.line_number}</span>
+                          </div>
+                          <p className="text-sm font-medium mb-2">{parseMessage(issue.message)}</p>
+                          {issue.suggestion && (
+                            <div className="bg-muted/30 p-2 rounded text-xs font-mono border-l-2 border-primary/20">
+                              {issue.suggestion}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))
                 )}
-              </CardContent>
-            </Card>
+              </TabsContent>
+
+              <TabsContent value="tests" className="pt-6 space-y-4">
+                {pr.suggested_tests.length === 0 ? <p className="text-muted-foreground">No suggestions.</p> :
+                  pr.suggested_tests.map(test => <SuggestedTestCard key={test.test_id} test={test} />)
+                }
+              </TabsContent>
+            </Tabs>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Suggested Tests */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Suggested Tests</h2>
-              <div className="space-y-4">
-                {pr.suggested_tests.length === 0 ? (
-                  <Card className="glass-card p-8 text-center">
-                    <p className="text-muted-foreground">No test suggestions available</p>
-                  </Card>
-                ) : (
-                  pr.suggested_tests.map((test) => (
-                    <SuggestedTestCard key={test.test_id} test={test} />
-                  ))
-                )}
-              </div>
-            </div>
+          {/* Right Sidebar (4 cols) */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="bg-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Health Score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-2">
+                  <span className="text-5xl font-bold tracking-tighter text-primary">{pr.health_score}</span>
+                  <span className="text-sm text-muted-foreground mb-2">/ 100</span>
+                </div>
+                <div className="h-2 w-full bg-secondary mt-4 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary transition-all duration-500" style={{ width: `${pr.health_score}%` }} />
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Coverage Advice */}
             {pr.coverage_advice.length > 0 && (
-              <Card className="glass-card">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Coverage Gaps</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileCode className="h-4 w-4" /> Coverage Gaps
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {pr.coverage_advice.map((advice, idx) => (
-                    <div key={idx} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <p className="text-sm font-mono">{advice.file_path}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Lines: {advice.lines.join(', ')}
-                      </p>
-                      <p className="text-sm">{advice.suggestion}</p>
+                <CardContent className="space-y-4">
+                  {pr.coverage_advice.map((advice, i) => (
+                    <div key={i} className="text-sm">
+                      <p className="font-mono text-xs text-muted-foreground mb-1">{advice.file_path}</p>
+                      <p>{advice.suggestion}</p>
                     </div>
                   ))}
                 </CardContent>
