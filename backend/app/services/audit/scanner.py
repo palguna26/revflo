@@ -12,9 +12,11 @@ from groq import AsyncGroq
 
 from app.models.scan import ScanResult, AuditReport, AuditSummary, FragilityMap, Roadmap
 from app.models.repo import Repo
-from app.core.config import settings
+from app.core.config import get_settings
 from app.services.audit.risk_engine import risk_engine
 from app.services.audit.ai_audit import AuditAI
+
+settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
