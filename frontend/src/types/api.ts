@@ -16,6 +16,10 @@ export interface RepoSummary {
   pr_count: number;
   issue_count: number;
   last_activity?: string;
+  id?: string;
+  private?: boolean;
+  description?: string;
+  html_url?: string;
 }
 
 export interface PRSummary {
@@ -28,6 +32,9 @@ export interface PRSummary {
   merge_decision?: boolean;
   block_reason?: 'BLOCK_CHECKLIST_FAILED' | 'BLOCK_INDETERMINATE_EVIDENCE' | 'BLOCK_SECURITY_CRITICAL' | 'BLOCK_INSUFFICIENT_ISSUE_SPEC' | null;
   github_url: string;
+  id?: string;
+  state?: string;
+  repo_full_name?: string;
 }
 
 export interface ValidationResult {
@@ -62,6 +69,9 @@ export interface Issue {
   };
   checklist?: ChecklistItem[];
   github_url: string;
+  id?: string;
+  repo_full_name?: string;
+  state?: string;
 }
 
 export interface TestResult {
@@ -117,6 +127,7 @@ export interface PRDetail {
   coverage_advice: CoverageAdvice[];
   suggested_tests: SuggestedTest[];
   github_url: string;
+  head_sha: string;
 }
 
 export interface Notification {

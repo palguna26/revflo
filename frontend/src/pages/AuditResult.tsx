@@ -2,23 +2,26 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { ScanResult, RiskItem, AuditReport } from "@/types/api"; // Ensure AuditReport is imported if needed for types
+import { ScanResult, RiskItem, AuditReport } from "@/types/api";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, AlertTriangle, CheckCircle, XCircle, Shield, Zap, Activity } from "lucide-react";
+import {
+    Loader2, AlertTriangle, CheckCircle, XCircle, Shield, Zap, Activity,
+    ArrowRight, BarChart3, Layers, GitCommit, AlertOctagon, TrendingUp
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const getSeverityColor = (severity: string) => {
+const getSeverityStyles = (severity: string) => {
     switch (severity) {
-        case "critical": return "destructive";
-        case "high": return "destructive";
-        case "medium": return "warning"; // amber/orange
-        case "low": return "secondary";
-        default: return "outline";
+        case "critical": return { color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20" };
+        case "high": return { color: "text-orange-600", bg: "bg-orange-500/10", border: "border-orange-500/20" };
+        case "medium": return { color: "text-yellow-600", bg: "bg-yellow-500/10", border: "border-yellow-500/20" };
+        case "low": return { color: "text-blue-600", bg: "bg-blue-500/10", border: "border-blue-500/20" };
+        default: return { color: "text-muted-foreground", bg: "bg-muted", border: "border-border" };
     }
 };
 
@@ -26,7 +29,7 @@ const getScoreColor = (score: string) => {
     switch (score) {
         case "high": return "text-green-500";
         case "medium": return "text-yellow-500";
-        case "low": return "text-red-500";
+        case "low": return "text-destructive";
         default: return "text-muted-foreground";
     }
 };
@@ -38,7 +41,6 @@ export default function AuditResult() {
     const queryClient = useQueryClient();
     const [repoId, setRepoId] = useState<string | null>(null);
 
-    // 1. Resolve owner/repo to ID
     useEffect(() => {
         api.getRepo(owner!, repo!).then((r) => {
             // @ts-ignore
@@ -69,170 +71,199 @@ export default function AuditResult() {
         }
     });
 
-    if (!repoId) return <div className="h-screen bg-background flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (!repoId) return <div className="h-screen bg-background flex items-center justify-center"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>;
 
     return (
-        <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+        <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 pb-20">
             <Header />
-            <main className="container mx-auto max-w-7xl px-4 py-8 space-y-8">
 
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Codebase Health Audit</h1>
-                        <p className="text-muted-foreground mt-1">Deep architectural analysis & risk assessment.</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {scan && (
-                            <Badge variant="outline" className="font-mono">
-                                Latest: {new Date(scan.started_at).toLocaleDateString()}
-                            </Badge>
-                        )}
-                        <Button
-                            onClick={() => triggerScan.mutate()}
-                            disabled={triggerScan.isPending || (scan?.status === 'pending' || scan?.status === 'processing')}
-                        >
-                            {triggerScan.isPending || scan?.status === 'processing' ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning...</>
-                            ) : (
-                                <><Activity className="mr-2 h-4 w-4" /> Run New Scan</>
+            {/* Hero Section */}
+            <div className="bg-muted/30 border-b">
+                <div className="container mx-auto max-w-7xl px-4 py-12">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-primary font-medium tracking-tight">
+                                <BarChart3 className="h-5 w-5" /> Codebase Health Audit
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-foreground">
+                                {owner}/{repo}
+                            </h1>
+                            <p className="text-lg text-muted-foreground max-w-2xl leading-relaxed">
+                                Deep architectural analysis & algorithmic risk assessment.
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            {scan && (
+                                <div className="flex flex-col items-end mr-4">
+                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Last Analyzed</span>
+                                    <span className="font-mono text-sm">{new Date(scan.started_at).toLocaleDateString()}</span>
+                                </div>
                             )}
-                        </Button>
+                            <Button
+                                onClick={() => triggerScan.mutate()}
+                                size="lg"
+                                className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95"
+                                disabled={triggerScan.isPending || (scan?.status === 'pending' || scan?.status === 'processing')}
+                            >
+                                {triggerScan.isPending || scan?.status === 'processing' ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>
+                                ) : (
+                                    <><Activity className="mr-2 h-4 w-4" /> Run New Scan</>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <main className="container mx-auto max-w-7xl px-4 py-10 space-y-12">
 
                 {/* Empty State / Error */}
                 {isError && !scan && (
-                    <Card className="border-dashed">
-                        <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-                            <Shield className="h-12 w-12 text-muted-foreground mb-4" />
-                            <h3 className="text-lg font-medium">No Audit Found</h3>
-                            <p className="text-muted-foreground mb-4 max-w-md">
-                                We haven't analyzed this repository yet. Run a scan to generate insights.
+                    <Card className="border-dashed bg-muted/30">
+                        <CardContent className="flex flex-col items-center justify-center p-16 text-center animate-in fade-in zoom-in duration-500">
+                            <div className="bg-background p-4 rounded-full border shadow-sm mb-6">
+                                <Shield className="h-12 w-12 text-muted-foreground" />
+                            </div>
+                            <h3 className="text-xl font-semibold mb-2">No Audit Data Available</h3>
+                            <p className="text-muted-foreground mb-8 max-w-md">
+                                We haven't analyzed this repository yet. Start a comprehensive scan to generate architectural insights.
                             </p>
-                            <Button onClick={() => triggerScan.mutate()}>Start Initial Audit</Button>
+                            <Button onClick={() => triggerScan.mutate()} size="lg">Start Initial Audit</Button>
                         </CardContent>
                     </Card>
                 )}
 
                 {/* Report Content */}
                 {scan && scan.report && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
 
-                        {/* Executive Takeaway */}
-                        <Card className="bg-primary/5 border-primary/20">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Zap className="h-5 w-5 text-primary" /> Executive Takeaway
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-lg font-medium leading-relaxed">
-                                    {scan.report.executive_takeaway}
-                                </p>
+                        {/* Section: Executive Summary */}
+                        <section className="space-y-6">
+                            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                                <Zap className="h-6 w-6 text-primary" /> Executive Summary
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                                    <Stat label="Maintainability" val={scan.report.summary.maintainability} />
-                                    <Stat label="Security" val={scan.report.summary.security} />
-                                    <Stat label="Performance" val={scan.report.summary.performance} />
-                                    <Stat label="Confidence" val={scan.report.summary.testing_confidence} />
+                                {/* Takeaway Card */}
+                                <Card className="md:col-span-8 bg-gradient-to-br from-primary/5 via-transparent to-transparent border-primary/20 shadow-sm relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                                    <CardHeader>
+                                        <CardTitle className="text-lg font-medium text-primary">Chief Architect's Takeaway</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-xl md:text-2xl font-medium leading-relaxed tracking-tight text-foreground/90">
+                                            "{scan.report.executive_takeaway}"
+                                        </p>
+                                    </CardContent>
+                                </Card>
+
+                                {/* KPI Cards */}
+                                <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                                    <MetricCard label="Maintainability" value={scan.report.summary.maintainability} />
+                                    <MetricCard label="Security" value={scan.report.summary.security} />
+                                    <MetricCard label="Performance" value={scan.report.summary.performance} />
+                                    <MetricCard label="Confidence" value={scan.report.summary.testing_confidence} />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </section>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <Separator className="opacity-50" />
 
-                            {/* Top Risks */}
-                            <div className="space-y-4">
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <AlertTriangle className="text-destructive h-6 w-6" /> Top Risks
+                        {/* Section: Top Risks */}
+                        <section className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                                    <AlertOctagon className="h-6 w-6 text-destructive" /> Critical Risks
                                 </h2>
+                                <Badge variant="outline" className="font-mono text-xs">
+                                    {scan.report.top_risks.length} Issues Identified
+                                </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {scan.report.top_risks.map((risk, i) => (
-                                    <Card key={i} className="hover:shadow-md transition-shadow">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex justify-between items-start">
-                                                <CardTitle className="text-base font-semibold">{risk.title}</CardTitle>
-                                                <Badge variant={getSeverityColor(risk.severity) as any}>{risk.severity}</Badge>
-                                            </div>
-                                            <CardDescription className="line-clamp-2">{risk.why_it_matters}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="text-sm space-y-3 pt-0">
-                                            <div className="bg-muted p-2 rounded text-xs font-mono">
-                                                Affected: {risk.affected_areas.join(", ")}
-                                            </div>
-                                            <p className="text-muted-foreground">
-                                                <span className="font-semibold text-foreground">Fix:</span> {risk.recommended_action}
-                                            </p>
-                                        </CardContent>
-                                    </Card>
+                                    <RiskCard key={i} risk={risk} index={i} />
                                 ))}
                             </div>
+                        </section>
 
-                            {/* Roadmap & Fragility */}
-                            <div className="space-y-8">
+                        {/* Section: Fragility & Roadmap */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
 
-                                {/* Roadmap */}
-                                <div>
-                                    <h2 className="text-2xl font-bold flex items-center gap-2 mb-4">
-                                        <Activity className="text-blue-500 h-6 w-6" /> Roadmap
-                                    </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <Card className="border-l-4 border-l-destructive/50">
-                                            <CardHeader><CardTitle className="text-sm uppercase tracking-wide text-muted-foreground">Fix Now</CardTitle></CardHeader>
-                                            <CardContent>
-                                                <ul className="space-y-2">
-                                                    {scan.report.roadmap.fix_now.map((item, i) => (
-                                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                                            <XCircle className="h-4 w-4 text-destructive mt-0.5" /> {item}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </CardContent>
-                                        </Card>
-                                        <Card className="border-l-4 border-l-orange-500/50">
-                                            <CardHeader><CardTitle className="text-sm uppercase tracking-wide text-muted-foreground">Fix Next</CardTitle></CardHeader>
-                                            <CardContent>
-                                                <ul className="space-y-2">
-                                                    {scan.report.roadmap.fix_next.map((item, i) => (
-                                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                                            <Activity className="h-4 w-4 text-orange-500 mt-0.5" /> {item}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </div>
-
-                                {/* Fragility Map */}
-                                <div>
-                                    <h2 className="text-2xl font-bold flex items-center gap-2 mb-4">
-                                        Fragility Map
-                                    </h2>
-                                    <Card>
-                                        <CardContent className="p-6">
-                                            <h4 className="font-semibold mb-2 text-sm text-destructive">High Risk Modules</h4>
-                                            <div className="flex flex-wrap gap-2 mb-6">
-                                                {scan.report.fragility_map.high_risk_modules.map((mod, i) => (
-                                                    <Badge key={i} variant="outline" className="border-destructive/30 text-destructive bg-destructive/5">
-                                                        {mod}
-                                                    </Badge>
-                                                ))}
+                            {/* Fragility Map */}
+                            <section className="space-y-6">
+                                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                                    <Layers className="h-6 w-6 text-blue-500" /> Fragility Heatmap
+                                </h2>
+                                <Card className="h-full overflow-hidden border-border/60 shadow-sm">
+                                    <CardHeader className="bg-muted/30 pb-4 border-b">
+                                        <CardDescription>Areas with high complexity churn intersection.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="divide-y divide-border/60">
+                                            <div className="p-6">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h4 className="font-semibold text-sm text-destructive flex items-center gap-2">
+                                                        <Activity className="h-4 w-4" /> High Risk Modules
+                                                    </h4>
+                                                    <span className="text-xs text-muted-foreground">Require Immediate Refactor</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {scan.report.fragility_map.high_risk_modules.length > 0 ? (
+                                                        scan.report.fragility_map.high_risk_modules.map((mod, i) => (
+                                                            <HeatmapBadge key={i} label={mod} severity="critical" />
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground italic">No high risk modules detected.</span>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <h4 className="font-semibold mb-2 text-sm text-yellow-500">Change Sensitive</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {scan.report.fragility_map.change_sensitive_areas.map((mod, i) => (
-                                                    <Badge key={i} variant="outline" className="border-yellow-500/30 text-yellow-600 bg-yellow-500/5">
-                                                        {mod}
-                                                    </Badge>
-                                                ))}
+                                            <div className="p-6 bg-muted/10">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h4 className="font-semibold text-sm text-yellow-600 flex items-center gap-2">
+                                                        <GitCommit className="h-4 w-4" /> Change Sensitive
+                                                    </h4>
+                                                    <span className="text-xs text-muted-foreground">Monitor closely during PRs</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {scan.report.fragility_map.change_sensitive_areas.length > 0 ? (
+                                                        scan.report.fragility_map.change_sensitive_areas.map((mod, i) => (
+                                                            <HeatmapBadge key={i} label={mod} severity="medium" />
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground italic">No sensitive areas detected.</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </section>
 
-                            </div>
+                            {/* Roadmap */}
+                            <section className="space-y-6">
+                                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                                    <TrendingUp className="h-6 w-6 text-green-600" /> Remediation Roadmap
+                                </h2>
+                                <div className="space-y-4">
+                                    <RoadmapGroup
+                                        title="Fix Now"
+                                        items={scan.report.roadmap.fix_now}
+                                        type="critical"
+                                        icon={<AlertTriangle className="h-4 w-4" />}
+                                    />
+                                    <RoadmapGroup
+                                        title="Fix Next"
+                                        items={scan.report.roadmap.fix_next}
+                                        type="medium"
+                                        icon={<ArrowRight className="h-4 w-4" />}
+                                    />
+                                </div>
+                            </section>
+
                         </div>
                     </div>
                 )}
@@ -241,13 +272,100 @@ export default function AuditResult() {
     );
 }
 
-function Stat({ label, val }: { label: string; val: string }) {
+// --- Subtitles Components ---
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+    const color = getScoreColor(value);
     return (
-        <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
-            <span className={`text-xl font-bold capitalized ${getScoreColor(val)}`}>
-                {val}
-            </span>
-        </div>
+        <Card className="flex flex-col items-center justify-center p-4 shadow-none border-border/60 bg-card/50 hover:bg-card transition-colors">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{label}</span>
+            <span className={`text-2xl font-bold capitalize ${color}`}>{value}</span>
+        </Card>
+    );
+}
+
+function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
+    const styles = getSeverityStyles(risk.severity);
+    return (
+        <Card className="group relative overflow-hidden transition-all hover:shadow-lg border-border/60">
+            <div className={`absolute top-0 left-0 w-1 h-full ${styles.bg.replace('/10', '')}`} />
+            <CardHeader className="pb-3 pt-5 px-5">
+                <div className="flex justify-between items-start gap-4">
+                    <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                        {risk.title}
+                    </h3>
+                    <Badge variant="outline" className={`${styles.color} ${styles.bg} ${styles.border} uppercase text-[10px] tracking-wider`}>
+                        {risk.severity}
+                    </Badge>
+                </div>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-4">
+                <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                    {risk.why_it_matters}
+                </p>
+
+                <div className="pt-2 border-t border-border/40">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                        <span>Recommended Action</span>
+                    </div>
+                    <p className="text-sm font-medium text-foreground bg-muted/50 p-3 rounded-md border border-border/40">
+                        {risk.recommended_action}
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1 pt-1">
+                    {risk.affected_areas.slice(0, 3).map((area, i) => (
+                        <span key={i} className="text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">
+                            {area}
+                        </span>
+                    ))}
+                    {risk.affected_areas.length > 3 && (
+                        <span className="text-[10px] text-muted-foreground px-1 py-0.5">+ {risk.affected_areas.length - 3}</span>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function HeatmapBadge({ label, severity }: { label: string; severity: 'critical' | 'medium' }) {
+    const styles = severity === 'critical'
+        ? "bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20"
+        : "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20";
+
+    return (
+        <Badge variant="outline" className={`${styles} transition-colors cursor-default py-1 px-3 text-sm`}>
+            {label}
+        </Badge>
+    );
+}
+
+function RoadmapGroup({ title, items, type, icon }: { title: string; items: string[]; type: 'critical' | 'medium'; icon: any }) {
+    const styles = type === 'critical'
+        ? "border-l-destructive/50 bg-destructive/5"
+        : "border-l-orange-500/50 bg-orange-500/5";
+
+    const titleColor = type === 'critical' ? 'text-destructive' : 'text-orange-600';
+
+    if (!items.length) return null;
+
+    return (
+        <Card className={`border-0 border-l-4 rounded-r-lg rounded-l-none shadow-sm ${styles}`}>
+            <CardHeader className="py-4">
+                <CardTitle className={`text-sm uppercase tracking-wide flex items-center gap-2 ${titleColor}`}>
+                    {icon} {title}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 pt-0">
+                <ul className="space-y-3">
+                    {items.map((item, i) => (
+                        <li key={i} className="flex items-start gap-3 text-sm group">
+                            <span className={`mt-1.5 h-1.5 w-1.5 rounded-full ${type === 'critical' ? 'bg-destructive' : 'bg-orange-500'} group-hover:scale-150 transition-transform`} />
+                            <span className="text-foreground/90 leading-relaxed font-medium">{item}</span>
+                        </li>
+                    ))}
+                </ul>
+            </CardContent>
+        </Card>
     );
 }
