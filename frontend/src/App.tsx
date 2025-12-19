@@ -11,7 +11,6 @@ import IssueDetail from "./pages/IssueDetail";
 import PRDetail from "./pages/PRDetail";
 import RepoSettings from "./pages/RepoSettings";
 import HealthAnalytics from "./pages/HealthAnalytics";
-import AuditResult from "./pages/AuditResult";
 import AddRepo from "./pages/AddRepo";
 import NotFound from "./pages/NotFound";
 
@@ -32,7 +31,6 @@ const App = () => (
           <Route path="/repo/:owner/:repo/prs/:prNumber" element={<PRDetail />} />
           <Route path="/repo/:owner/:repo/settings" element={<RepoSettings />} />
           <Route path="/repo/:owner/:repo/analytics" element={<HealthAnalytics />} />
-          <Route path="/repo/:owner/:repo/audit" element={<AuditResult />} />
           <Route path="/add-repo" element={<AddRepo />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

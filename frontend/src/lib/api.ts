@@ -1,4 +1,4 @@
-import type { Issue, Notification, PRDetail, RepoSummary, User, PRSummary, ScanResult } from '@/types/api';
+import type { Issue, Notification, PRDetail, RepoSummary, User, PRSummary } from '@/types/api';
 
 const rawBase = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
 const API_BASE =
@@ -139,20 +139,5 @@ export const api = {
       body: JSON.stringify({ issue_description: issueDescription, code_snippet: codeSnippet }),
     });
     return res.fixed_code;
-  },
-
-  async triggerAuditScan(repoId: string): Promise<ScanResult> {
-    return request<ScanResult>(`/repos/${repoId}/audit/scan`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
-  },
-
-  async getLatestAudit(repoId: string): Promise<ScanResult> {
-    return request<ScanResult>(`/repos/${repoId}/audit/latest`);
-  },
-
-  async getAuditDetail(repoId: string, scanId: string): Promise<ScanResult> {
-    return request<ScanResult>(`/repos/${repoId}/audit/${scanId}`);
   },
 };

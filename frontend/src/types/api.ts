@@ -16,10 +16,6 @@ export interface RepoSummary {
   pr_count: number;
   issue_count: number;
   last_activity?: string;
-  id?: string;
-  private?: boolean;
-  description?: string;
-  html_url?: string;
 }
 
 export interface PRSummary {
@@ -32,9 +28,6 @@ export interface PRSummary {
   merge_decision?: boolean;
   block_reason?: 'BLOCK_CHECKLIST_FAILED' | 'BLOCK_INDETERMINATE_EVIDENCE' | 'BLOCK_SECURITY_CRITICAL' | 'BLOCK_INSUFFICIENT_ISSUE_SPEC' | null;
   github_url: string;
-  id?: string;
-  state?: string;
-  repo_full_name?: string;
 }
 
 export interface ValidationResult {
@@ -69,9 +62,6 @@ export interface Issue {
   };
   checklist?: ChecklistItem[];
   github_url: string;
-  id?: string;
-  repo_full_name?: string;
-  state?: string;
 }
 
 export interface TestResult {
@@ -127,7 +117,6 @@ export interface PRDetail {
   coverage_advice: CoverageAdvice[];
   suggested_tests: SuggestedTest[];
   github_url: string;
-  head_sha: string;
 }
 
 export interface Notification {
@@ -137,58 +126,4 @@ export interface Notification {
   repo_full_name?: string;
   created_at: string;
   read: boolean;
-}
-
-export interface RiskItem {
-  title: string;
-  why_it_matters: string;
-  affected_areas: string[];
-  likelihood: "low" | "medium" | "high";
-  recommended_action: string;
-  severity: "critical" | "high" | "medium" | "low";
-}
-
-export interface FragilityMap {
-  high_risk_modules: string[];
-  change_sensitive_areas: string[];
-}
-
-export interface SecurityReliabilityItem {
-  finding: string;
-  severity: "critical" | "high" | "medium" | "low";
-  context: string;
-}
-
-export interface Roadmap {
-  fix_now: string[];
-  fix_next: string[];
-  defer: string[];
-}
-
-export interface AuditSummary {
-  maintainability: "low" | "medium" | "high";
-  security: "low" | "medium" | "high";
-  performance: "low" | "medium" | "high";
-  testing_confidence: "low" | "medium" | "high";
-  overview: string;
-}
-
-export interface AuditReport {
-  summary: AuditSummary;
-  top_risks: RiskItem[];
-  fragility_map: FragilityMap;
-  security_reliability: SecurityReliabilityItem[];
-  roadmap: Roadmap;
-  executive_takeaway: string;
-}
-
-export interface ScanResult {
-  id: string;
-  repo_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  started_at: string;
-  completed_at?: string;
-  report?: AuditReport;
-  raw_metrics?: any;
-  error_message?: string;
 }
