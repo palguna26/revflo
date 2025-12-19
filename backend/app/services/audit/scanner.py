@@ -27,7 +27,7 @@ class AuditScanner:
             self.temp_dir = Path(os.getenv('TEMP')) / "revflo_scans"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         # Initialize AI Service
-        self.groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        self.groq_client = AsyncGroq(api_key=settings.groq_api_key)
         self.ai_service = AuditAI(self.groq_client)
 
     async def trigger_scan(self, repo_id: PydanticObjectId, repo_url: str, token: str) -> ScanResult:
