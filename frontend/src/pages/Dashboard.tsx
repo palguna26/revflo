@@ -78,7 +78,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 pb-20">
-      <Header />
+      <Header user={user || undefined} repos={repos} />
 
       {/* Welcome Hero */}
       <div className="border-b bg-card/30 backdrop-blur-sm sticky top-16 z-30">
@@ -215,7 +215,7 @@ function RepoCard({ repo, navigate }: { repo: RepoSummary, navigate: any }) {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground font-light">{repo.owner} /</span>
             </div>
-            <CardTitle className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}/audit`)}>
+            <CardTitle className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}>
               {repo.name}
             </CardTitle>
           </div>
@@ -233,9 +233,9 @@ function RepoCard({ repo, navigate }: { repo: RepoSummary, navigate: any }) {
             variant="default"
             size="sm"
             className="w-full shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => navigate(`/repo/${repo.owner}/${repo.name}/audit`)}
+            onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}
           >
-            <Activity className="h-3.5 w-3.5 mr-2" /> Health Audit
+            <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Dashboard
           </Button>
           <Button variant="outline" size="sm" className="px-3" asChild>
             <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
@@ -256,7 +256,7 @@ function RepoListItem({ repo, navigate }: { repo: RepoSummary, navigate: any }) 
           <GitPullRequest className="h-5 w-5" />
         </div>
         <div>
-          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}/audit`)}>
+          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}>
             {repo.owner}/{repo.name}
           </h3>
           <p className="text-xs text-muted-foreground line-clamp-1 max-w-[400px]">
@@ -265,8 +265,8 @@ function RepoListItem({ repo, navigate }: { repo: RepoSummary, navigate: any }) 
         </div>
       </div>
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}/audit`)}>
-          Audit
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}>
+          View
         </Button>
         <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-2">
           <ExternalLink className="h-4 w-4" />
