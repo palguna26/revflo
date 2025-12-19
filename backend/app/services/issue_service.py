@@ -25,7 +25,10 @@ class IssueService:
         issues = await Issue.find(Issue.repo_id == repo.id).sort("-issue_number").to_list()
         
         # 2. Trigger Background Sync
-        if bg_tasks:
+        if not issues:
+             await self.sync_issues_bg(owner, repo_name, user, repo.id)
+             issues = await Issue.find(Issue.repo_id == repo.id).sort("-issue_number").to_list()
+        elif bg_tasks:
             bg_tasks.add_task(self.sync_issues_bg, owner, repo_name, user, repo.id)
             
         return issues

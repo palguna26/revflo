@@ -21,7 +21,12 @@ class PRService:
         local_prs = await PullRequest.find(PullRequest.repo_id == repo.id).sort("-pr_number").to_list()
         
         # 2. Trigger Background Sync
-        if bg_tasks:
+        if not local_prs:
+            # Sync immediately if no cache
+            await self.sync_prs_bg(owner, repo_name, user, repo.id)
+            local_prs = await PullRequest.find(PullRequest.repo_id == repo.id).sort("-pr_number").to_list()
+        elif bg_tasks:
+            # Background update if we have data
             bg_tasks.add_task(self.sync_prs_bg, owner, repo_name, user, repo.id)
             
         # Map to summary
