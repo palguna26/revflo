@@ -59,7 +59,7 @@ class AuditAI:
             "security_reliability": [
                 {{
                     "finding": "Potential auth bypass regression",
-                    "severity": "urgent",
+                    "severity": "critical"|"high"|"medium"|"low",
                     "context": "High churn in auth_service.py suggests instability."
                 }}
             ],

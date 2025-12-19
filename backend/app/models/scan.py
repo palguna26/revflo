@@ -19,7 +19,7 @@ class FragilityMap(BaseModel):
 
 class SecurityReliabilityItem(BaseModel):
     finding: str
-    severity: Literal["urgent", "important", "acceptable_risk"]
+    severity: Literal["critical", "high", "medium", "low"]
     context: str
 
 class Roadmap(BaseModel):

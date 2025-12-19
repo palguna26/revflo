@@ -144,7 +144,7 @@ export interface FragilityMap {
 
 export interface SecurityReliabilityItem {
   finding: string;
-  severity: "urgent" | "important" | "acceptable_risk";
+  severity: "critical" | "high" | "medium" | "low";
   context: string;
 }
 
