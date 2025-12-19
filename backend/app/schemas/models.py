@@ -40,9 +40,12 @@ class PRSummary(BaseModel):
     title: str
     author: str
     created_at: datetime
-    health_score: int = 90  # placeholder until we compute real health
+    health_score: int = 90
     validation_status: Literal["pending", "validated", "needs_work"] = "pending"
     github_url: str
+    head_sha: str = "0000000"
+    state: str = "open"
+    repo_full_name: Optional[str] = None
 
 
 class ChecklistItem(BaseModel):
@@ -69,6 +72,8 @@ class Issue(BaseModel):
     checklist_summary: IssueChecklistSummary
     checklist: Optional[List[ChecklistItem]] = None
     github_url: str
+    state: str = "open"
+    repo_full_name: Optional[str] = None
 
 
 class TestResult(BaseModel):
@@ -123,6 +128,9 @@ class PRDetail(BaseModel):
     coverage_advice: List[CoverageAdvice]
     suggested_tests: List[SuggestedTest]
     github_url: str
+    head_sha: str = "0000000"
+    block_reason: Optional[Literal["BLOCK_CHECKLIST_FAILED", "BLOCK_INDETERMINATE_EVIDENCE", "BLOCK_SECURITY_CRITICAL", "BLOCK_INSUFFICIENT_ISSUE_SPEC"]] = None
+    merge_decision: bool = False
 
 
 class Notification(BaseModel):

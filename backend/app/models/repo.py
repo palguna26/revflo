@@ -11,6 +11,9 @@ class Repo(Document):
     is_installed: bool = False
     pr_count: int = 0
     issue_count: int = 0
+    private: bool = False
+    description: Optional[str] = None
+    html_url: Optional[str] = None
     last_activity: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
