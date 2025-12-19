@@ -75,8 +75,6 @@ class PullRequest(Document):
     author: str
     created_at: datetime
     github_url: str
-    head_sha: str = "0000000"
-    state: str = "open"
     
     # Analysis fields
     health_score: int = 0

@@ -34,10 +34,7 @@ class PRService:
                 created_at=pr.created_at,
                 github_url=pr.github_url,
                 health_score=pr.health_score,
-                validation_status=pr.validation_status,
-                head_sha=pr.head_sha,
-                state=pr.state,
-                repo_full_name=f"{owner}/{repo_name}"
+                validation_status=pr.validation_status
             ))
         return results
 
@@ -57,16 +54,11 @@ class PRService:
                         author=item["user"]["login"],
                         created_at=datetime.strptime(item["created_at"], "%Y-%m-%dT%H:%M:%SZ"),
                         github_url=item["html_url"],
-                        head_sha=item["head"]["sha"] if "head" in item else "0000000",
-                        state=item.get("state", "open"),
                         validation_status="pending"
                     )
                 else:
                     # Update basics
                     pr.title = item["title"]
-                    pr.state = item.get("state", "open")
-                    if "head" in item:
-                        pr.head_sha = item["head"]["sha"]
                     pr.updated_at = datetime.utcnow()
                 
                 await pr.save()
@@ -89,8 +81,6 @@ class PRService:
                 author=gh_data["user"]["login"],
                 created_at=datetime.strptime(gh_data["created_at"], "%Y-%m-%dT%H:%M:%SZ"),
                 github_url=gh_data["html_url"],
-                head_sha=gh_data["head"]["sha"] if "head" in gh_data else "0000000",
-                state=gh_data.get("state", "open"),
                 validation_status="pending"
             )
             await pr.save()

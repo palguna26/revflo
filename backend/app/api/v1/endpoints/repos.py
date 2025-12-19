@@ -55,9 +55,6 @@ async def sync_repo_stats(repo_doc: Repo, access_token: str):
             if repo_details_resp.status_code == 200:
                 data = repo_details_resp.json()
                 repo_doc.last_activity = data.get("pushed_at")
-                repo_doc.description = data.get("description")
-                repo_doc.private = data.get("private", False)
-                repo_doc.html_url = data.get("html_url")
 
         except Exception as e:
             print(f"Error syncing stats for {repo_doc.repo_full_name}: {e}")
@@ -218,9 +215,6 @@ async def add_repo(
             pr_count=repo_data.get("open_issues_count", 0),
             issue_count=repo_data.get("open_issues_count", 0),
             last_activity=repo_data.get("pushed_at"),
-            description=repo_data.get("description"),
-            private=repo_data.get("private", False),
-            html_url=repo_data.get("html_url"),
             updated_at=now
         )
     else:
@@ -228,9 +222,6 @@ async def add_repo(
          repo.pr_count = repo_data.get("open_issues_count", 0)
          repo.issue_count = repo_data.get("open_issues_count", 0)
          repo.last_activity = repo_data.get("pushed_at")
-         repo.description = repo_data.get("description")
-         repo.private = repo_data.get("private", False)
-         repo.html_url = repo_data.get("html_url")
          repo.updated_at = now
     
     await repo.save()
