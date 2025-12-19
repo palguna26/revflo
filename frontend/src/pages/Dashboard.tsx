@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, GitPullRequest, FileText, Plus, ExternalLink, RefreshCw } from 'lucide-react';
+import { TrendingUp, GitPullRequest, FileText, Plus, ExternalLink, RefreshCw, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { User, RepoSummary, PRSummary, Issue } from '@/types/api';
@@ -174,6 +174,17 @@ const Dashboard = () => {
                         </div>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 p-0 text-muted-foreground hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/repo/${repo.owner}/${repo.name}/audit`);
+                      }}
+                    >
+                      <Activity className="h-4 w-4 mr-1" /> Audit
+                    </Button>
                   </CardContent>
                 </Card>
               );
@@ -239,8 +250,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-      </main>
-    </div>
+      </main >
+    </div >
   );
 };
 
