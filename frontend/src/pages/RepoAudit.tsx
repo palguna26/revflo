@@ -88,10 +88,18 @@ const RepoAudit = () => {
     };
 
     const handleRunAudit = async () => {
-        if (!repoDetails?.id) return;
+        const rId = repoDetails?.id || repoDetails?._id;
+        console.log("Run Audit clicked. RepoDetails:", repoDetails, "ID to use:", rId);
+
+        if (!rId) {
+            console.error("No Repo ID found!");
+            return;
+        }
+
         setScanning(true);
         try {
-            await api.triggerRepoAudit(repoDetails.id);
+            console.log("Triggering audit for:", rId);
+            await api.triggerRepoAudit(rId);
             // Poll or just wait a bit and reload? 
             // For now, simple wait and reload as MVPs often do, although polling is better.
             // The backend mock is instantish but real one is background. 
@@ -104,7 +112,7 @@ const RepoAudit = () => {
                 setScanning(false);
             }, 3000);
         } catch (e) {
-            console.error(e);
+            console.error("Trigger failed:", e);
             setScanning(false);
         }
     };
