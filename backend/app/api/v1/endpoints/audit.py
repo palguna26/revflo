@@ -8,7 +8,7 @@ from app.models.user import User
 from app.models.repo import Repo
 from app.models.scan import ScanResult
 from app.models.audit_schema import AuditResult, AuditCategories, Finding
-# from app.services.audit.scanner import audit_scanner # We will implement inline or mock for now as per instructions
+from app.services.audit.scanner import audit_scanner # Real implementation
 from app.core.security import decrypt_token
 
 router = APIRouter(prefix="/repos", tags=["audit"])
@@ -25,8 +25,8 @@ def map_to_audit_result(scan: ScanResult, repo_id: str) -> AuditResult:
         created_at=scan.started_at,
         categories=scan.categories,
         findings=scan.findings,
-        loc=0, # TODO: Store LOC in ScanResult
-        language="TypeScript" # Placeholder
+        loc=scan.raw_metrics.get("file_count", 0) if scan.raw_metrics else 0,
+        language="TypeScript" # Placeholder, ideally derived from scan.raw_metrics["language_breakdown"]
     )
 
 @router.get("/{owner}/{repo}/audit", response_model=AuditResult)
@@ -52,11 +52,6 @@ async def get_repo_audit(
     )
     
     if not scan:
-        # Return 204 or specific structure? API contract says "Frontend Must support empty".
-        # Let's return 404 for "No audit found" so frontend handles it explicitly, 
-        # or return a default empty structure.
-        # User prompt: "If no audit exists: UI shows Empty State"
-        # 404 is semantically correct for "Audit not found".
         raise HTTPException(status_code=404, detail="No audit found for this repository.")
 
     return map_to_audit_result(scan, str(r.id))
@@ -100,64 +95,9 @@ async def trigger_scan(
 
     # 3. Queue Background Task
     token = decrypt_token(current_user.access_token)
-    background_tasks.add_task(run_static_analysis_task, str(new_scan.id), f"https://github.com/{repo.owner}/{repo.name}", token)
+    repo_url = f"https://github.com/{repo.owner}/{repo.name}"
+    
+    # Use the real scanner
+    background_tasks.add_task(audit_scanner._process_scan, new_scan, repo_url, token)
     
     return new_scan
-
-async def run_static_analysis_task(scan_id: str, repo_url: str, token: str):
-    """
-    Mock Static Analysis + Heuristics (AST/Regex).
-    Updates the ScanResult with findings.
-    """
-    scan = await ScanResult.get(scan_id)
-    if not scan:
-        return
-
-    try:
-        # Simulate Analysis Delay
-        # await asyncio.sleep(2)
-        
-        # MOCKED RESULTS FOR DEMO/MVP
-        # In a real impl, we would clone repo, run AST parse, check dependencies.
-        
-        # 1. Categories
-        scan.categories = AuditCategories(
-            security=85,
-            performance=92,
-            code_quality=78,
-            architecture=60,
-            maintainability=70,
-            dependencies=88
-        )
-        
-        # 2. Findings (Mock)
-        scan.findings = [
-            Finding(
-                id="sec-1",
-                severity="critical",
-                file_path="backend/app/core/security.py",
-                line=45,
-                description="Hardcoded secret key detected",
-                explanation="Detected a string literal that resembles an API key or secret."
-            ),
-            Finding(
-                id="arch-1",
-                severity="high",
-                file_path="frontend/src/App.tsx",
-                line=12,
-                description="Circular dependency detected",
-                explanation="App.tsx imports Dashboard, which imports App components."
-            )
-        ]
-        
-        scan.overall_score = 82
-        scan.risk_level = "medium"
-        scan.status = "completed"
-        scan.completed_at = datetime.utcnow()
-        await scan.save()
-        
-    except Exception as e:
-        print(f"Scan failed: {e}")
-        scan.status = "failed"
-        scan.summary = str(e)
-        await scan.save()
