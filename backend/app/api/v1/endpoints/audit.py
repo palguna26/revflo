@@ -71,18 +71,18 @@ async def trigger_scan(
         raise HTTPException(status_code=404, detail="Repository not found")
 
     # 1. Check Rate Limit
-    cutoff = datetime.utcnow() - timedelta(hours=24)
-    recent_scan = await ScanResult.find_one(
-        ScanResult.repo_id == repo_id,
-        ScanResult.started_at > cutoff,
-        ScanResult.status != "failed"
-    )
+    # cutoff = datetime.utcnow() - timedelta(hours=24)
+    # recent_scan = await ScanResult.find_one(
+    #     ScanResult.repo_id == repo_id,
+    #     ScanResult.started_at > cutoff,
+    #     ScanResult.status != "failed"
+    # )
 
-    if recent_scan:
-        raise HTTPException(
-            status_code=429, 
-            detail="Rate limit exceeded. You can only scan this repository once every 24 hours."
-        )
+    # if recent_scan:
+    #     raise HTTPException(
+    #         status_code=429, 
+    #         detail="Rate limit exceeded. You can only scan this repository once every 24 hours."
+    #     )
 
     # 2. Create Pending Scan Record
     new_scan = ScanResult(
