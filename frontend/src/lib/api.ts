@@ -140,4 +140,15 @@ export const api = {
     });
     return res.fixed_code;
   },
+
+  async getRepoAudit(owner: string, repo: string): Promise<any> {
+    return request<any>(`/repos/${owner}/${repo}/audit`);
+  },
+
+  async triggerRepoAudit(repoId: string): Promise<any> {
+    return request<any>(`/repos/${repoId}/audit/scan`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
 };

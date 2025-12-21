@@ -163,7 +163,7 @@ const Dashboard = () => {
                         <div className="text-3xl font-bold tracking-tight">{repo.health_score}</div>
                         <div className="text-xs text-muted-foreground mt-1">Health Score</div>
                       </div>
-                      <div className="flex gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <GitPullRequest className="h-3.5 w-3.5" />
                           {repo.pr_count}
@@ -172,6 +172,17 @@ const Dashboard = () => {
                           <FileText className="h-3.5 w-3.5" />
                           {repo.issue_count}
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs ml-2 hover:bg-primary/10 hover:text-primary border-primary/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/repo/${repo.owner}/${repo.name}/audit`);
+                          }}
+                        >
+                          Audit
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -239,8 +250,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-      </main>
-    </div>
+      </main >
+    </div >
   );
 };
 
