@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
+import type { RepoSummary } from '@/types/api';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,7 +50,7 @@ const RepoAudit = () => {
     const [error, setError] = useState<string | null>(null);
     const [isEmpty, setIsEmpty] = useState(false);
     const [scanning, setScanning] = useState(false);
-    const [repoDetails, setRepoDetails] = useState<any>(null); // To get Repo ID for trigger
+    const [repoDetails, setRepoDetails] = useState<RepoSummary | null>(null); // To get Repo ID for trigger
 
     useEffect(() => {
         loadData();
@@ -70,14 +71,15 @@ const RepoAudit = () => {
             try {
                 const auditData = await api.getRepoAudit(owner, repo);
                 setAudit(auditData);
-            } catch (err: any) {
-                if (err.message?.includes('404') || err.message?.includes('No audit')) {
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : String(err);
+                if (message?.includes('404') || message?.includes('No audit')) {
                     setIsEmpty(true);
                 } else {
                     throw err;
                 }
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
             setError("Failed to load repository data.");
         } finally {

@@ -8,6 +8,7 @@ export interface User {
 }
 
 export interface RepoSummary {
+  id: string;
   repo_full_name: string;
   owner: string;
   name: string;
