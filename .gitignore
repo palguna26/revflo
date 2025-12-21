@@ -81,3 +81,6 @@ mongo-data/
 # --- Secrets ---
 *.env
 .env.production
+
+#--error logs--
+/backend/error_log.txt
