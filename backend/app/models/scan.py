@@ -1,8 +1,45 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import Field, BaseModel
 from app.models.audit_schema import Finding, AuditCategories
+
+class RiskItem(BaseModel):
+    title: str
+    why_it_matters: str
+    affected_areas: List[str]
+    likelihood: Literal["high", "medium", "low"]
+    recommended_action: str
+    severity: Literal["critical", "high", "medium", "low"]
+
+class AuditSummary(BaseModel):
+    maintainability: str
+    security: str
+    performance: str
+    testing_confidence: str
+    overview: str
+
+class FragilityMap(BaseModel):
+    high_risk_modules: List[str] = []
+    change_sensitive_areas: List[str] = []
+
+class SecurityReliabilityItem(BaseModel):
+    finding: str
+    severity: str
+    context: str
+
+class Roadmap(BaseModel):
+    fix_now: List[str] = []
+    fix_next: List[str] = []
+    defer: List[str] = []
+
+class AuditReport(BaseModel):
+    summary: AuditSummary
+    top_risks: List[RiskItem]
+    fragility_map: FragilityMap
+    security_reliability: List[SecurityReliabilityItem] = []
+    roadmap: Roadmap
+    executive_takeaway: str
 
 class Vulnerability(Finding):
     # Backwards compatibility if needed, or just alias it. 
@@ -32,6 +69,10 @@ class ScanResult(Document):
     
     # Legacy/Simple Summary
     summary: str = ""
+    
+    # AI Report
+    report: Optional[AuditReport] = None
+    raw_metrics: Optional[dict] = None # For debug/legacy
 
     class Settings:
         name = "scans"
