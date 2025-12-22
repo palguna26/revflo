@@ -145,8 +145,8 @@ export const api = {
     return request<any>(`/repos/${owner}/${repo}/audit`);
   },
 
-  async triggerRepoAudit(repoId: string): Promise<any> {
-    return request<any>(`/repos/${repoId}/audit/scan`, {
+  async triggerRepoAudit(owner: string, repo: string): Promise<any> {
+    return request<any>(`/repos/${owner}/${repo}/audit/scan`, {
       method: 'POST',
       body: JSON.stringify({}),
     });

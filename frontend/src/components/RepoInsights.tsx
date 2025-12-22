@@ -76,12 +76,11 @@ export const RepoInsights = () => {
     };
 
     const handleRunSnapshot = async () => {
-        const rId = repoDetails?.id || repoDetails?._id;
-        if (!rId) return;
+        if (!owner || !repo) return;
 
         setScanning(true);
         try {
-            await api.triggerRepoAudit(rId);
+            await api.triggerRepoAudit(owner, repo);
             setTimeout(() => {
                 loadData();
                 setScanning(false);
