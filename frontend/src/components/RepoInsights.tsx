@@ -67,12 +67,18 @@ export const RepoInsights = () => {
             setRepoDetails(r);
 
             try {
-                const auditData = await api.getRepoAudit(owner, repo);
-                if (!auditData) {
+                let data = await api.getRepoAudit(owner, repo);
+
+                // Robustness: Handle if API returns an array (legacy/stale behavior)
+                if (Array.isArray(data)) {
+                    data = data.length > 0 ? data[0] : null;
+                }
+
+                if (!data) {
                     setIsEmpty(true);
                     setAudit(null);
                 } else {
-                    setAudit(auditData);
+                    setAudit(data);
                 }
             } catch (err: any) {
                 if (err.message?.includes('404') || err.message?.includes('No audit')) {
@@ -129,7 +135,7 @@ export const RepoInsights = () => {
                 <div className="flex items-center gap-4">
                     {audit && audit.created_at && (
                         <span className="text-xs text-muted-foreground">
-                            Last snapshot: {new Date(audit.created_at).toLocaleDateString()}
+                            Last snapshot: {new Date(typeof audit.created_at === 'object' ? (audit.created_at as any).$date || audit.created_at : audit.created_at).toLocaleDateString()}
                         </span>
                     )}
                     <Button size="sm" onClick={handleRunSnapshot} disabled={scanning}>

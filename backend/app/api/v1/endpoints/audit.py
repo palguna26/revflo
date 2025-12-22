@@ -8,7 +8,7 @@ from app.models.user import User
 from app.models.repo import Repo
 from app.models.scan import ScanResult
 from app.models.audit_schema import AuditResult, AuditCategories, Finding
-from app.services.assistant_service import assistant # Unified Service
+from app.services.assistant_service import assistant
 from app.core.security import decrypt_token
 
 router = APIRouter(prefix="/repos/{owner}/{repo}/audit", tags=["audit"])
