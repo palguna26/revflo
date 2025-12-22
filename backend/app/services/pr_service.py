@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.issue import Issue, ValidationResult
 from app.schemas.models import PRSummary
 from app.services.github import github_service
-from app.services.ai_review import ai_service
+from app.services.assistant_service import assistant
 
 class PRService:
     async def list_prs(self, owner: str, repo_name: str, user: User, bg_tasks: BackgroundTasks = None) -> List[PRSummary]:
@@ -112,7 +112,7 @@ class PRService:
         checklist_items = [{"id": i.id, "text": i.text} for i in issue.checklist]
         
         # 4. AI Analysis
-        r = await ai_service.perform_unified_review(pr_doc.title, description, diff, checklist_items)
+        r = await assistant.verify_change(pr_doc.title, description, diff, checklist_items)
         
         # 5. Update PR
         pr_doc.code_health = r.get("code_health", [])
