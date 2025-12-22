@@ -62,6 +62,18 @@ class RiskEngine:
                     recommended_action="Simplification required.",
                     severity="high"
                 ))
+            
+            # V2 Rule: Missing Tests (Only for substantial files)
+            # Threshold: LOC > 100 AND no test coverage
+            if loc > 100 and not file.get('has_test', False):
+                findings.append(RiskItem(
+                    title=f"No Tests: {path}",
+                    why_it_matters=f"File has {loc} lines but no test coverage detected.",
+                    affected_areas=[path],
+                    likelihood="medium",
+                    recommended_action="Add unit tests to improve code reliability.",
+                    severity="medium"
+                ))
 
         return findings
 

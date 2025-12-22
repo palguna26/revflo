@@ -84,6 +84,9 @@ class AuditScanner:
             
             # Calculate churn using GitHub API (V1 Bug Fix)
             churn_map = await self._calculate_churn(repo_url, token, file_stats)
+            
+            # V2 Feature: Detect test coverage
+            test_coverage_map = await self._detect_test_coverage(scan_dir, file_stats)
 
             
             # Enrich file_stats with complexity/metrics
@@ -92,6 +95,7 @@ class AuditScanner:
                 stat['complexity'] = m.get('complexity', 0)
                 stat['loc'] = m.get('loc', 0)
                 stat['indent_depth'] = m.get('indent_depth', 0)
+                stat['has_test'] = test_coverage_map.get(stat['path'], False)  # V2: Test coverage
 
             # --- Stage 2: Risk Analysis (Deterministic) ---
             top_risks = risk_engine.analyze(file_stats, churn_map)
@@ -307,6 +311,64 @@ class AuditScanner:
                 churn_map[file_path] = 0  # Graceful degradation
         
         return churn_map
+
+    async def _detect_test_coverage(self, scan_dir: Path, file_stats: List[Dict]) -> Dict[str, bool]:
+        """
+        V2 FEATURE: Detect if source files have corresponding test files.
+        
+        Test file patterns by language:
+        - Python: test_*.py, *_test.py, tests/*.py
+        - JavaScript/TypeScript: *.test.js, *.spec.js, *.test.ts, *.spec.ts
+        - Java: *Test.java, tests/*
+        
+        Returns: Dict mapping file paths to boolean (has_test)
+        """
+        # Collect all test files
+        test_files = set()
+        test_patterns = [
+            '*test*.py', '*spec*.py',
+            '*test*.js', '*spec*.js',
+            '*test*.ts', '*spec*.ts', '*test*.tsx', '*spec*.tsx',
+            '*Test.java', '*Tests.java'
+        ]
+        
+        for root, _, files in os.walk(scan_dir):
+            if ".git" in root or "node_modules" in root:
+                continue
+            for file in files:
+                file_lower = file.lower()
+                # Check if it's a test file
+                if any(pattern.replace('*', '') in file_lower for pattern in ['test', 'spec']):
+                    file_path = Path(root) / file
+                    try:
+                        rel_path = str(file_path.relative_to(scan_dir)).replace('\\', '/')
+                        test_files.add(rel_path)
+                    except:
+                        pass
+        
+        logger.info(f"Found {len(test_files)} test files")
+        
+        # Map source files to test coverage
+        coverage_map = {}
+        for stat in file_stats:
+            path = stat['path']
+            
+            # Skip if it's already a test file
+            if 'test' in path.lower() or 'spec' in path.lower():
+                continue
+            
+            # Extract filename without extension
+            file_name = Path(path).stem
+            
+            # Check if there's a corresponding test file
+            has_test = any(
+                file_name in test_file or test_file in path
+                for test_file in test_files
+            )
+            
+            coverage_map[path] = has_test
+        
+        return coverage_map
 
 
     def _get_language_breakdown(self, stats: List[Dict]) -> Dict[str, int]:
