@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import LoginCallback from "./pages/LoginCallback";
 import Dashboard from "./pages/Dashboard";
+import { DashboardLayout } from "./layouts/DashboardLayout";
 import RepoPage from "./pages/RepoPage";
 import IssueDetail from "./pages/IssueDetail";
 import PRDetail from "./pages/PRDetail";
@@ -26,14 +27,18 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth/callback" element={<LoginCallback />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/repo/:owner/:repo" element={<RepoPage />} />
-          <Route path="/repo/:owner/:repo/issues/:issueNumber" element={<IssueDetail />} />
-          <Route path="/repo/:owner/:repo/prs/:prNumber" element={<PRDetail />} />
-          <Route path="/repo/:owner/:repo/settings" element={<RepoSettings />} />
 
-          <Route path="/repo/:owner/:repo/analytics" element={<HealthAnalytics />} />
-          <Route path="/add-repo" element={<AddRepo />} />
+          {/* Authenticated Routes wrapped in DashboardLayout */}
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/repo/:owner/:repo" element={<RepoPage />} />
+            <Route path="/repo/:owner/:repo/issues/:issueNumber" element={<IssueDetail />} />
+            <Route path="/repo/:owner/:repo/prs/:prNumber" element={<PRDetail />} />
+            <Route path="/repo/:owner/:repo/settings" element={<RepoSettings />} />
+            <Route path="/repo/:owner/:repo/analytics" element={<HealthAnalytics />} />
+            <Route path="/add-repo" element={<AddRepo />} />
+          </Route>
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
+// Header removed
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -14,9 +14,11 @@ import type { User, RepoSummary, Issue, PRSummary } from '@/types/api';
 
 const RepoPage = () => {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
-  const [user, setUser] = useState<User | null>(null);
+  // user and repos are in context but RepoPage mostly needs its own specific data
+  // const { user } = useOutletContext<DashboardContextType>(); 
+
   const [repoData, setRepoData] = useState<RepoSummary | null>(null);
-  const [repos, setRepos] = useState<RepoSummary[]>([]);
+  // const [repos, setRepos] = useState<RepoSummary[]>([]); // Removed
   const [issues, setIssues] = useState<Issue[]>([]);
   const [pullRequests, setPullRequests] = useState<PRSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,19 +28,15 @@ const RepoPage = () => {
       if (!owner || !repo) return;
 
       try {
-        const [userData, repoDetails, issuesData, prsData] = await Promise.all([
-          api.getMe(),
+        const [repoDetails, issuesData, prsData] = await Promise.all([
           api.getRepo(owner, repo),
           api.getIssues(owner, repo),
           api.getPullRequests(owner, repo),
         ]);
 
-        setUser(userData);
         setRepoData(repoDetails);
         setIssues(issuesData);
         setPullRequests(prsData);
-        // Do not fetch global repos list here - unnecessary overhead
-        setRepos([]);
       } catch (error) {
         console.error('Failed to load repo data:', error);
       } finally {
@@ -52,7 +50,8 @@ const RepoPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header loading={true} />
+        {/* Header from Layout takes care of loading skeleton if global loading, 
+            but this is local loading state. We just show the main content loading. */}
         <main className="container px-4 py-8">
           {/* Repo Header Skeleton */}
           <div className="mb-8">
@@ -96,7 +95,7 @@ const RepoPage = () => {
   if (!repoData || !owner || !repo) {
     return (
       <div className="min-h-screen bg-background">
-        <Header user={user || undefined} repos={repos} />
+        {/* Header removed */}
         <main className="container px-4 py-8">
           <Card className="p-12 text-center">
             <p className="text-muted-foreground">Repository not found</p>
@@ -108,7 +107,7 @@ const RepoPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user || undefined} repos={repos} />
+      {/* Header removed */}
 
       <main className="container px-4 py-8">
         {/* Repo Header */}

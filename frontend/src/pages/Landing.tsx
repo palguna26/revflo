@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Github, Check, Terminal, Shield, Zap, GitPullRequest, ArrowRight, Code2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -44,12 +45,15 @@ const Landing = () => {
             </div>
             RevFlo
           </div>
-          <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm hover:shadow-md transition-all">
-            <a href={`${API_BASE}/auth/github/login`}>
-              <Github className="mr-2 h-4 w-4" />
-              Sign in
-            </a>
-          </Button>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm hover:shadow-md transition-all">
+              <a href={`${API_BASE}/auth/github/login`}>
+                <Github className="mr-2 h-4 w-4" />
+                Sign in
+              </a>
+            </Button>
+          </div>
         </div>
       </header>
 

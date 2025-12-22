@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Header } from '@/components/Header';
+// Header removed
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,11 +11,13 @@ import type { User, RepoSummary, PRSummary, Issue } from '@/types/api';
 import { PRCard } from '@/components/PRCard';
 import { IssueCard } from '@/components/IssueCard';
 
+import { useOutletContext } from 'react-router-dom';
+import type { DashboardContextType } from '@/layouts/DashboardLayout';
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [repos, setRepos] = useState<RepoSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, repos, setUser, setRepos } = useOutletContext<DashboardContextType>();
+  // Local state for dashboard-specific things
   const [recentPRs, setRecentPRs] = useState<PRSummary[]>([]);
   const [recentIssues, setRecentIssues] = useState<Issue[]>([]);
   const [savingRepos, setSavingRepos] = useState(false);
@@ -23,32 +25,14 @@ const Dashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        if (token) {
-          localStorage.setItem('qr_token', token);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
-        const [userData, reposData] = await Promise.all([api.getMe(), api.getRepos()]);
-        setUser(userData);
-        setRepos(reposData);
-
-        const initialSelection =
-          userData.managed_repos && userData.managed_repos.length > 0
-            ? userData.managed_repos
-            : reposData.map((r) => r.repo_full_name);
-        setSelectedRepos(initialSelection);
-      } catch (error) {
-        console.error('Failed to load dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+    if (user && repos.length > 0) {
+      const initialSelection =
+        user.managed_repos && user.managed_repos.length > 0
+          ? user.managed_repos
+          : repos.map((r) => r.repo_full_name);
+      setSelectedRepos(initialSelection);
+    }
+  }, [user, repos]);
 
   useEffect(() => {
     if (repos.length === 0) return;
@@ -86,23 +70,12 @@ const Dashboard = () => {
     window.location.reload();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header loading={true} />
-        <main className="container max-w-7xl mx-auto px-4 py-8">
-          <Skeleton className="h-12 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-3">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}
-          </div>
-        </main>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header user={user || undefined} repos={repos} />
+      {/* Header removed, provided by Layout */}
+
 
       <main className="container max-w-5xl mx-auto px-4 py-8">
         {/* Welcome & Actions */}
