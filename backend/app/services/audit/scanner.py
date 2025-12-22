@@ -126,7 +126,6 @@ class AuditScanner:
             scan.categories.maintainability = scan.overall_score
             scan.categories.security = scan.overall_score # Placeholder until security scanner integrated
             scan.categories.performance = 80 # Default
-            scan.categories.testing_confidence = 50 # Default
             scan.categories.code_quality = scan.overall_score
             scan.categories.architecture = scan.overall_score
             scan.categories.dependencies = 70
@@ -297,29 +296,35 @@ class AuditScanner:
         return int(score)
 
     async def _extract_code_snippets(self, scan_dir: Path, complexity_map: Dict[str, int]) -> Dict[str, str]:
+        """
+        Extract code snippets for AI analysis.
+        V2: Reduced to avoid Groq token limits (6000 TPM).
+        """
         snippets = {}
         
-        # 1. Always try to get README
+        # 1. Always try to get README (truncated)
         for readme_name in ["README.md", "readme.md", "README.txt"]:
             readme_path = scan_dir / readme_name
             if readme_path.exists():
                 try:
                     with open(readme_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        snippets["README"] = f.read(2000) # First 2000 chars
+                        snippets["README"] = f.read(1000)  # Reduced from 2000
                     break
-                except: pass
+                except:
+                    pass
         
-        # 2. Get top 3 most complex files
-        sorted_files = sorted(complexity_map.items(), key=lambda x: x[1], reverse=True)[:3]
+        # 2. Get top 2 most complex files (reduced from 3)
+        sorted_files = sorted(complexity_map.items(), key=lambda x: x[1], reverse=True)[:2]
         for rel_path, score in sorted_files:
             try:
                 full_path = scan_dir / rel_path
                 with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    # Read first 150 lines or 5000 chars
-                    content = f.read(5000)
-                    lines = content.splitlines()[:150]
+                    # Reduced from 5000 chars / 150 lines to 3000 chars / 100 lines
+                    content = f.read(3000)
+                    lines = content.splitlines()[:100]
                     snippets[rel_path] = "\n".join(lines)
-            except: pass
+            except:
+                pass
             
         return snippets
 
