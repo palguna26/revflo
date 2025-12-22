@@ -110,7 +110,9 @@ class AuditScanner:
             else: scan.risk_level = "critical"
             
             # --- Stage 4: AI Context & Explanation ---
-            snippets = await self._extract_code_snippets(scan_dir, {f['path']: f.get('complexity', 0) for f in file_stats})
+            # Extract complexity values as integers for snippet extraction
+            complexity_int_map = {path: metrics.get('complexity', 0) for path, metrics in complexity_map.items()}
+            snippets = await self._extract_code_snippets(scan_dir, complexity_int_map)
             
             repo_context = {
                 "file_count": len(file_stats),
@@ -132,7 +134,7 @@ class AuditScanner:
 
             scan.raw_metrics = {
                 "file_count": len(file_stats),
-                "complexity_avg": sum(complexity_map.values()) / len(complexity_map) if complexity_map else 0
+                "complexity_avg": sum(m.get('complexity', 0) for m in complexity_map.values()) / len(complexity_map) if complexity_map else 0
             }
             
             # Get commit SHA for cache invalidation (PRD 6.1 requirement)
