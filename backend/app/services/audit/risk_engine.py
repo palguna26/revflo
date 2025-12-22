@@ -4,58 +4,65 @@ from app.models.scan import RiskItem
 class RiskEngine:
     def analyze(self, file_metrics: List[Dict[str, Any]], churn_metrics: Dict[str, int]) -> List[RiskItem]:
         """
-        Analyze metrics and return top risk items.
-        metrics format: [{'path': str, 'size': int, 'complexity': int}]
-        churn_metrics: {'path': commit_count}
+        Analyze metrics and return deterministic findings based on hard thresholds.
+        metrics format: [{'path': str, 'lox': int, 'complexity': int, 'indent_depth': int}]
         """
-        scored_files = []
-        
-        # 1. Normalize and Score
-        max_complexity = max((m.get('complexity', 0) for m in file_metrics), default=1)
-        max_churn = max(churn_metrics.values(), default=1)
+        findings = []
         
         for file in file_metrics:
             path = file['path']
             complexity = file.get('complexity', 0)
+            loc = file.get('loc', 0) 
+            indent = file.get('indent_depth', 0)
             churn = churn_metrics.get(path, 0)
             
-            # Normalize 0-1
-            norm_complexity = complexity / max_complexity if max_complexity > 0 else 0
-            norm_churn = churn / max_churn if max_churn > 0 else 0
+            # Rule 1: Hotspot (High Complexity + High Churn)
+            # Threshold: Complexity > 25 AND Churn > 10
+            if complexity > 25 and churn > 10:
+                findings.append(RiskItem(
+                    title=f"Hotspot: {path}",
+                    why_it_matters=f"High complexity ({complexity}) combined with frequent changes ({churn} commits) indicates a major stability risk.",
+                    affected_areas=[path],
+                    likelihood="high",
+                    recommended_action="Refactor to reduce complexity immediately.",
+                    severity="critical"
+                ))
             
-            # Heuristic Formula: 50% Complexity + 50% Churn
-            # (Coupling omitted for MVP efficiency)
-            risk_score = (norm_complexity * 0.5) + (norm_churn * 0.5)
-            
-            scored_files.append({
-                "path": path,
-                "score": risk_score,
-                "raw_complexity": complexity,
-                "raw_churn": churn
-            })
-            
-        # 2. Sort by Risk Score
-        scored_files.sort(key=lambda x: x['score'], reverse=True)
-        
-        # 3. Generate Risk Items for Top 10
-        top_risks = []
-        for item in scored_files[:10]:
-            if item['score'] < 0.1: continue # Ignore low risk
-            
-            reason = []
-            if item['raw_complexity'] > 10: reason.append("High Complexity")
-            if item['raw_churn'] > 5: reason.append("Frequent Changes")
-            
-            risk_item = RiskItem(
-                title=f"High Risk Module: {item['path']}",
-                why_it_matters=f"This file has high engineering friction ({', '.join(reason)}). It is error-prone and hard to maintain.",
-                affected_areas=[item['path']],
-                likelihood="high" if item['score'] > 0.7 else "medium",
-                recommended_action="Refactor to reduce complexity or break into smaller modules.",
-                severity="high" if item['score'] > 0.8 else "medium"
-            )
-            top_risks.append(risk_item)
-            
-        return top_risks
+            # Rule 2: Deep Nesting (Cognitive Load)
+            # Threshold: Indentation > 6
+            elif indent > 6:
+                findings.append(RiskItem(
+                    title=f"Deeply Nested Logic: {path}",
+                    why_it_matters=f"Indentation depth of {indent} makes code hard to read and test.",
+                    affected_areas=[path],
+                    likelihood="medium",
+                    recommended_action="Flatten logic using early returns or extract methods.",
+                    severity="high" 
+                ))
+
+            # Rule 3: Large File (Monolith)
+            # Threshold: LOC > 300
+            elif loc > 300:
+                findings.append(RiskItem(
+                    title=f"Large File: {path}",
+                    why_it_matters=f"File size of {loc} lines exceeds 300, suggesting too many responsibilities.",
+                    affected_areas=[path],
+                    likelihood="low",
+                    recommended_action="Split into smaller, focused modules.",
+                    severity="medium"
+                ))
+                
+            # Fallback Rule: High Complexity without Churn info
+            elif complexity > 35:
+                 findings.append(RiskItem(
+                    title=f"Complex Module: {path}",
+                    why_it_matters=f"Cyclomatic complexity of {complexity} is very high.",
+                    affected_areas=[path],
+                    likelihood="medium",
+                    recommended_action="Simplification required.",
+                    severity="high"
+                ))
+
+        return findings
 
 risk_engine = RiskEngine()

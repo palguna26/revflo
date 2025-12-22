@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import asyncio
 import logging
+import httpx
 from datetime import datetime
 from collections import Counter
 from typing import Dict, List, Any
@@ -19,6 +20,38 @@ from app.services.audit.ai_audit import AuditAI
 settings = get_settings()
 
 logger = logging.getLogger(__name__)
+
+def calculate_score(findings: List) -> int:
+    """
+    Calculate audit score from findings using V1 deterministic algorithm.
+    
+    V1 CONTRACT: This function must remain unchanged to preserve determinism.
+    - Start at 100
+    - Deduct per finding severity:
+      - Critical: -15
+      - High: -10
+      - Medium: -5
+      - Low: -2
+    - Floor at 0
+    
+    Args:
+        findings: List of RiskItem objects with severity attribute
+        
+    Returns:
+        int: Score between 0-100
+    """
+    score = 100
+    for risk in findings:
+        if risk.severity == "critical": 
+            score -= 15
+        elif risk.severity == "high": 
+            score -= 10
+        elif risk.severity == "medium": 
+            score -= 5
+        elif risk.severity == "low": 
+            score -= 2
+    return max(0, score)  # Clamp to 0
+
 
 class AuditScanner:
     def __init__(self):
@@ -48,29 +81,76 @@ class AuditScanner:
             
             file_stats = await self._index_files(scan_dir)
             complexity_map = await self._calculate_complexity(scan_dir)
-            churn_map = await self._calculate_churn(scan_dir)
             
-            # Enrich file_stats with complexity
-            for stat in file_stats:
-                stat['complexity'] = complexity_map.get(stat['path'], 0)
+            # Calculate churn using GitHub API (V1 Bug Fix)
+            churn_map = await self._calculate_churn(repo_url, token, file_stats)
 
-            # --- Stage 2: Risk Heuristics ---
+            
+            # Enrich file_stats with complexity/metrics
+            for stat in file_stats:
+                m = complexity_map.get(stat['path'], {})
+                stat['complexity'] = m.get('complexity', 0)
+                stat['loc'] = m.get('loc', 0)
+                stat['indent_depth'] = m.get('indent_depth', 0)
+
+            # --- Stage 2: Risk Analysis (Deterministic) ---
             top_risks = risk_engine.analyze(file_stats, churn_map)
             
-            # --- Stage 3: AI Insight ---
+            # --- Stage 3: Deterministic Scoring ---
+            scan.overall_score = calculate_score(top_risks)
+            
+            # Set Risk Level based on Score
+            if scan.overall_score >= 80: scan.risk_level = "low"
+            elif scan.overall_score >= 60: scan.risk_level = "medium"
+            elif scan.overall_score >= 40: scan.risk_level = "high"
+            else: scan.risk_level = "critical"
+            
+            # --- Stage 4: AI Context & Explanation ---
+            snippets = await self._extract_code_snippets(scan_dir, {f['path']: f.get('complexity', 0) for f in file_stats})
+            
             repo_context = {
                 "file_count": len(file_stats),
                 "total_churn_commits": sum(churn_map.values()),
                 "language_breakdown": self._get_language_breakdown(file_stats)
             }
             
-            report = await self.ai_service.generate_insights(top_risks, repo_context)
-            
+            # AI explains the deterministic findings
+            report = await self.ai_service.generate_insights(top_risks, repo_context, snippets)
             scan.report = report           
+
+            # Set Categories (Heuristic mapping for now, can be refined)
+            scan.categories.maintainability = scan.overall_score
+            scan.categories.security = scan.overall_score # Placeholder until security scanner integrated
+            scan.categories.performance = 80 # Default
+            scan.categories.testing_confidence = 50 # Default
+            scan.categories.code_quality = scan.overall_score
+            scan.categories.architecture = scan.overall_score
+            scan.categories.dependencies = 70
+
             scan.raw_metrics = {
                 "file_count": len(file_stats),
                 "complexity_avg": sum(complexity_map.values()) / len(complexity_map) if complexity_map else 0
             }
+            
+            # Get commit SHA for cache invalidation (PRD 6.1 requirement)
+            try:
+                parts = repo_url.strip("/").split("/")
+                owner, repo_name = parts[-2], parts[-1]
+                from app.services.github import github_service
+                async with httpx.AsyncClient(
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json"
+                    },
+                    timeout=10.0
+                ) as client:
+                    resp = await client.get(f"https://api.github.com/repos/{owner}/{repo_name}/commits/HEAD")
+                    if resp.status_code == 200:
+                        commit_data = resp.json()
+                        scan.commit_sha = commit_data.get("sha", "")[:7]  # Short SHA
+            except Exception as e:
+                logger.warning(f"Could not fetch commit SHA: {e}")
+            
             scan.status = "completed"
             scan.completed_at = datetime.utcnow()
             await scan.save()
@@ -159,9 +239,75 @@ class AuditScanner:
                         pass
         return metrics
 
-    async def _calculate_churn(self, scan_dir: Path) -> Dict[str, int]:
-        # Git is not available, return empty churn map
-        return {}
+    async def _extract_code_snippets(self, scan_dir: Path, complexity_map: Dict[str, int]) -> Dict[str, str]:
+        snippets = {}
+        
+        # 1. Always try to get README
+        for readme_name in ["README.md", "readme.md", "README.txt"]:
+            readme_path = scan_dir / readme_name
+            if readme_path.exists():
+                try:
+                    with open(readme_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        snippets["README"] = f.read(2000) # First 2000 chars
+                    break
+                except: pass
+        
+        # 2. Get top 3 most complex files
+        sorted_files = sorted(complexity_map.items(), key=lambda x: x[1], reverse=True)[:3]
+        for rel_path, score in sorted_files:
+            try:
+                full_path = scan_dir / rel_path
+                with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    # Read first 150 lines or 5000 chars
+                    content = f.read(5000)
+                    lines = content.splitlines()[:150]
+                    snippets[rel_path] = "\n".join(lines)
+            except: pass
+            
+        return snippets
+
+
+    async def _calculate_churn(self, repo_url: str, token: str, file_stats: List[Dict]) -> Dict[str, int]:
+        """
+        Calculate churn (commit frequency) for files using GitHub API.
+        
+        Churn = number of commits touching a file in the last 90 days.
+        This is a KEY METRIC for Hotspot detection (high complexity + high churn).
+        
+        V1 Preservation: Deterministic - same repo state → same churn values
+        """
+        from app.services.github import github_service
+        
+        # Extract owner/repo from URL
+        parts = repo_url.strip("/").split("/")
+        owner, repo = parts[-2], parts[-1]
+        
+        churn_map = {}
+        
+        # To avoid API rate limits, only calculate churn for top complex files
+        # or a sample of files (e.g., top 20 by size/complexity)
+        files_to_check = sorted(
+            [f for f in file_stats if f['path'].endswith(('.py', '.js', '.ts', '.java', '.cpp', '.tsx', '.jsx'))],
+            key=lambda x: x.get('size', 0),
+            reverse=True
+        )[:20]  # Top 20 largest code files
+        
+        logger.info(f"Calculating churn for {len(files_to_check)} files...")
+        
+        for file in files_to_check:
+            file_path = file['path']
+            try:
+                commit_count = await github_service.fetch_file_commits(
+                    owner, repo, file_path, token, since_days=90
+                )
+                churn_map[file_path] = commit_count
+                logger.debug(f"Churn for {file_path}: {commit_count} commits")
+            except Exception as e:
+                logger.warning(f"Could not fetch churn for {file_path}: {e}")
+                churn_map[file_path] = 0  # Graceful degradation
+        
+        return churn_map
+
 
     def _get_language_breakdown(self, stats: List[Dict]) -> Dict[str, int]:
         cnt = Counter([s['ext'] for s in stats])

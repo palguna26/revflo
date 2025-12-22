@@ -10,66 +10,60 @@ class AuditAI:
     def __init__(self, client: AsyncGroq):
         self.client = client
 
-    async def generate_insights(self, top_risks: List[RiskItem], repo_context: Dict[str, Any]) -> AuditReport:
+    async def generate_insights(self, top_risks: List[RiskItem], repo_context: Dict[str, Any], snippets: Dict[str, str]) -> AuditReport:
         """
         Generate comprehensive audit report based on top risks and repo context.
         """
         if not top_risks:
-            return self._fallback_report("No significant risks detected.")
+             return self._fallback_report("No significant risks detected based on metrics.")
 
-        # Prepare context for LLM (Truncate to save tokens)
-        risk_context = []
-        for item in top_risks[:5]: # Analyze top 5 only
-            risk_context.append({
-                "module": item.affected_areas[0] if item.affected_areas else "Unknown",
-                "score_components": {
-                    "complexity": "High" if "Complexity" in item.why_it_matters else "Normal",
-                    "churn": "High" if "Changes" in item.why_it_matters else "Normal"
-                }
+        # Prepare Findings Context for LLM
+        findings_context = []
+        for item in top_risks:
+            findings_context.append({
+                "file": item.affected_areas[0] if item.affected_areas else "Unknown",
+                "type": item.title,
+                "severity": item.severity,
+                "metrics": item.why_it_matters # We are passing the metric reasoning here
             })
 
         prompt = f"""
-        You are a Principal Software Architect performing a "Codebase Health Audit".
-        
-        CONTEXT:
-        We have analyzed a repository and identified the following HIGH RISK areas based on Churn and Complexity heuristics:
-        {json.dumps(risk_context, indent=2)}
+        You are a Principal Software Architect explaining the results of a deterministic "Codebase Health Audit".
 
-        Repo Stats: {json.dumps(repo_context, indent=2)}
+        CONTEXT:
+        We have computationally identified the following RISK FINDINGS based on strict metric thresholds:
+        {json.dumps(findings_context, indent=2)}
+
+        SOURCE CODE SNIPPETS (For context only):
+        {json.dumps(snippets, indent=2)}
 
         INSTRUCTIONS:
-        Generate a high-signal engineering report.
-        1. Synthesize a "Fragility Map": Which areas are likely to break?
-        2. Propose a "Roadmap": What should we fix NOW vs LATER?
-        3. Security & Reliability: Infer potential risks based on the high-churn/high-complexity modules (e.g., if auth module is high churn, flag security risk).
-        
+        1. "Executive Summary": Summarize the overall health based on the finding severity and count.
+        2. "Explainer": For the top findings, explain WHY the metrics (Complexity, Churn, etc.) are problematic for that specific code. Use the snippets to give concrete examples.
+        3. "Roadmap": Generate a remedial action for each finding. 
+           CRITICAL: logic must be 1:1. Finding A -> Fix A. Do NOT invent new tasks.
+
         OUTPUT CONTRACT (JSON ONLY):
         {{
             "summary": {{
-                "maintainability": "low"|"medium"|"high",
+                "maintainability": "low"|"medium"|"high", # Infer from finding severity
                 "security": "low"|"medium"|"high",
                 "performance": "low"|"medium"|"high",
                 "testing_confidence": "low"|"medium"|"high",
-                "overview": "1-2 sentence executive summary."
+                "overview": "Short executive summary explaining the score."
             }},
             "fragility_map": {{
-                "high_risk_modules": ["module1", "module2"],
-                "change_sensitive_areas": ["area1", "area2"]
+                "high_risk_modules": ["file1", "file2"], # Must match finding files
+                "change_sensitive_areas": []
             }},
-            "security_reliability": [
-                {{
-                    "finding": "Potential auth bypass regression",
-                    "severity": "critical"|"high"|"medium"|"low",
-                    "context": "High churn in auth_service.py suggests instability."
-                }}
-            ],
+            "security_reliability": [], # Leave empty unless you see explicit security risks in findings
             "roadmap": {{
-                "fix_now": ["Refactor Auth", "Add tests to Payment"],
-                "fix_next": ["Decouple User Service"],
-                "defer": ["UI cleanup"]
+                "fix_now": ["Action for Critical Finding 1", "Action for Critical Finding 2"],
+                "fix_next": ["Action for High Finding 1"],
+                "defer": ["Action for Medium/Low Findings"]
             }},
-            "executive_takeaway": "One powerful sentence for the CTO."
-        }}
+            "executive_takeaway": "One powerful sentence summary."
+        }} 
         """
 
         try:
