@@ -54,8 +54,8 @@ class ScanResult(Document):
     status: Literal["pending", "processing", "completed", "failed"]
     
     # Audit Metadata
-    commit_sha: Optional[str] = None
-    engine_version: str = "1.0.0"
+    commit_sh: Optional[str] = None
+    engine_version: str = "2.0.0"  # V2: Real cyclomatic complexity
     risk_level: Literal["low", "medium", "high", "critical"] = "low"
     overall_score: int = 0
     error_message: Optional[str] = None

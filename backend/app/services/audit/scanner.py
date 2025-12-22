@@ -219,29 +219,82 @@ class AuditScanner:
                     pass
         return stats
 
-    async def _calculate_complexity(self, scan_dir: Path) -> Dict[str, int]:
+    async def _calculate_complexity(self, scan_dir: Path) -> Dict[str, Dict]:
+        """
+        V2 FEATURE: Calculate real cyclomatic complexity using Radon (Python).
+        V1 used proxy-based complexity (indentation heuristic).
+        
+        Returns: Dict[path, {'complexity': int, 'loc': int, 'indent_depth': int}]
+        """
         metrics = {}
+        
         for root, _, files in os.walk(scan_dir):
-            if ".git" in root: continue
+            if ".git" in root:
+                continue
+                
             for file in files:
                 if file.endswith(('.py', '.js', '.ts', '.java', '.cpp', '.tsx', '.jsx')):
                     try:
                         path = Path(root) / file
                         rel_path = str(path.relative_to(scan_dir)).replace('\\', '/')
+                        
                         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                            lines = f.readlines()
-                            # Proxy complexity: Indentation > 4 chars (assuming 4 space indent) * Line Length
-                            # Better proxy: count indentation levels
-                            score = 0
-                            for line in lines:
+                            content = f.read()
+                            lines = content.splitlines()
+                        
+                        # Calculate LOC (non-empty, non-comment lines)
+                        loc = len([l for l in lines if l.strip() and not l.strip().startswith('#')])
+                        
+                        # Calculate indent depth (max indentation)
+                        indent_depth = 0
+                        for line in lines:
+                            if line.strip():
                                 stripped = line.lstrip()
                                 indent = len(line) - len(stripped)
-                                if indent >= 8: score += 1 # Deep nesting
-                                if len(line) > 120: score += 0.5 # Long lines
-                            metrics[rel_path] = int(score)
-                    except Exception:
+                                spaces = indent // 4  # Assuming 4-space indents
+                                indent_depth = max(indent_depth, spaces)
+                        
+                        # V2: Real cyclomatic complexity for Python files
+                        complexity = 0
+                        if file.endswith('.py'):
+                            try:
+                                from radon.complexity import cc_visit
+                                complexity_results = cc_visit(content)
+                                # Sum complexity of all functions/methods
+                                complexity = sum(item.complexity for item in complexity_results)
+                            except Exception as e:
+                                logger.warning(f"Radon failed for {rel_path}, using proxy: {e}")
+                                # Fallback to proxy for Python if Radon fails
+                                complexity = self._proxy_complexity(lines)
+                        else:
+                            # V1 Proxy for non-Python files
+                            complexity = self._proxy_complexity(lines)
+                        
+                       metrics[rel_path] = {
+                            'complexity': complexity,
+                            'loc': loc,
+                            'indent_depth': indent_depth
+                        }
+                    except Exception as e:
+                        logger.warning(f"Failed to analyze {file}: {e}")
                         pass
+        
         return metrics
+    
+    def _proxy_complexity(self, lines: List[str]) -> int:
+        """
+        V1 proxy complexity (fallback for non-Python or Radon failures).
+        Counts deep nesting and long lines as complexity indicators.
+        """
+        score = 0
+        for line in lines:
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            if indent >= 8:
+                score += 1  # Deep nesting
+            if len(line) > 120:
+                score += 0.5  # Long lines
+        return int(score)
 
     async def _extract_code_snippets(self, scan_dir: Path, complexity_map: Dict[str, int]) -> Dict[str, str]:
         snippets = {}
