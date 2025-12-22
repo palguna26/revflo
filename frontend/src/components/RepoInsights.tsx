@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, ShieldAlert, Layers, Box, Info } from 'lucide-react';
+import { AlertCircle, ShieldAlert, Layers, Box, Info, Map } from 'lucide-react';
 
 interface Finding {
     id: string;
@@ -37,6 +37,12 @@ interface AuditResult {
     created_at: string;
     categories: AuditCategories;
     findings: Finding[];
+    report?: {
+        summary: any;
+        top_risks: any[];
+        fragility_map: any;
+        roadmap: any;
+    };
 }
 
 export const RepoInsights = () => {
@@ -62,7 +68,12 @@ export const RepoInsights = () => {
 
             try {
                 const auditData = await api.getRepoAudit(owner, repo);
-                setAudit(auditData);
+                if (!auditData) {
+                    setIsEmpty(true);
+                    setAudit(null);
+                } else {
+                    setAudit(auditData);
+                }
             } catch (err: any) {
                 if (err.message?.includes('404') || err.message?.includes('No audit')) {
                     setIsEmpty(true);
@@ -152,8 +163,15 @@ export const RepoInsights = () => {
                                     <Badge className={getRiskColor(audit?.risk_level || 'low') + " text-lg px-4 py-2 capitalize"}>
                                         {audit?.risk_level} Risk
                                     </Badge>
-                                    <div className="flex-1 grid grid-cols-3 gap-4">
-                                        {(audit?.findings || [])
+                                    <div className="flex-1 space-y-2">
+                                        {/* Display Top Risks from Report if available, else findings */}
+                                        {(audit?.report?.top_risks || []).slice(0, 3).map((r: any, i: number) => (
+                                            <div key={i} className="text-xs border p-2 rounded bg-red-500/5 border-red-500/20">
+                                                <div className="font-semibold">{r.title}</div>
+                                                <div className="text-muted-foreground truncate">{r.why_it_matters}</div>
+                                            </div>
+                                        ))}
+                                        {(!audit?.report?.top_risks || audit.report.top_risks.length === 0) && (audit?.findings || [])
                                             .filter(f => f.severity === 'critical')
                                             .slice(0, 3)
                                             .map(f => (
@@ -197,6 +215,41 @@ export const RepoInsights = () => {
                                 ))}
                             </CardContent>
                         </Card>
+
+                        {/* Roadmap Section */}
+                        {audit?.report?.roadmap && (
+                            <Card className="md:col-span-2">
+                                <CardHeader><CardTitle className="flex items-center gap-2"><Map className="h-4 w-4" /> Recommended Roadmap</CardTitle></CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-red-50 p-4 rounded border border-red-100">
+                                            <h4 className="font-semibold text-red-700 text-sm mb-2">Fix Now</h4>
+                                            <ul className="text-xs space-y-1 list-disc list-inside">
+                                                {(audit.report.roadmap.fix_now || []).map((item: string, i: number) => (
+                                                    <li key={i}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-yellow-50 p-4 rounded border border-yellow-100">
+                                            <h4 className="font-semibold text-yellow-700 text-sm mb-2">Fix Next</h4>
+                                            <ul className="text-xs space-y-1 list-disc list-inside">
+                                                {(audit.report.roadmap.fix_next || []).map((item: string, i: number) => (
+                                                    <li key={i}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-blue-50 p-4 rounded border border-blue-100">
+                                            <h4 className="font-semibold text-blue-700 text-sm mb-2">Defer</h4>
+                                            <ul className="text-xs space-y-1 list-disc list-inside">
+                                                {(audit.report.roadmap.defer || []).map((item: string, i: number) => (
+                                                    <li key={i}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </>
             )}

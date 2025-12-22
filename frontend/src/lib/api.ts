@@ -142,7 +142,7 @@ export const api = {
   },
 
   async getRepoAudit(owner: string, repo: string): Promise<any> {
-    return request<any>(`/repos/${owner}/${repo}/audit`);
+    return request<any>(`/repos/${owner}/${repo}/audit/latest`);
   },
 
   async triggerRepoAudit(owner: string, repo: string): Promise<any> {
