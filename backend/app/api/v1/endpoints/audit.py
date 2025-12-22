@@ -67,4 +67,4 @@ async def get_latest_audit(
 ):
     repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
     if not repo_doc: return None
-    return await ScanResult.find_one(ScanResult.repo_id == repo_doc.id).sort("-created_at")
+    return await ScanResult.find(ScanResult.repo_id == repo_doc.id).sort("-created_at").first_or_none()
