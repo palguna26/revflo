@@ -104,109 +104,47 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Header user={user || undefined} repos={repos} />
 
-      <main className="container max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-6 border-b">
+      <main className="container max-w-5xl mx-auto px-4 py-8">
+        {/* Welcome & Actions */}
+        <div className="flex items-center justify-between mb-8 pb-6 border-b">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">My Active Work</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Welcome back, {user?.name || user?.login}. Here's what's happening across your projects.
+              Welcome back, {user?.name || user?.login}. Here are the PRs and Issues requiring your attention.
             </p>
           </div>
-          <div className="flex items-center gap-2 mt-4 md:mt-0">
-            {repos.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleSaveRepos} disabled={savingRepos} className="h-8">
-                {savingRepos ? 'Saving...' : 'Save View'}
-              </Button>
-            )}
-            <Button size="sm" className="h-8 shadow-none" onClick={() => navigate('/add-repo')}>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => navigate('/add-repo')}>
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Repository
             </Button>
           </div>
         </div>
 
-        {/* Repositories */}
-        {repos.length === 0 ? (
+        {/* Active Work Content */}
+        {recentPRs.length === 0 && recentIssues.length === 0 ? (
           <div className="text-center py-20 border rounded-lg bg-card border-dashed">
-            <h3 className="text-lg font-medium mb-2">No repositories connected</h3>
-            <p className="text-muted-foreground mb-6">Connect a GitHub repository to start analyzing code.</p>
-            <Button onClick={() => navigate('/add-repo')}>Connect Repository</Button>
+            <h3 className="text-lg font-medium mb-2">No active work found</h3>
+            <p className="text-muted-foreground mb-6">You don't have any recent PRs or assigned issues.</p>
+            <Button onClick={() => navigate('/add-repo')}>Connect a Repository</Button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-10">
-            {repos.map((repo) => {
-              const isSelected = selectedRepos.includes(repo.repo_full_name);
-              return (
-                <Card
-                  key={repo.repo_full_name}
-                  className={`group cursor-pointer transition-colors hover:border-primary/50 relative ${!isSelected ? 'opacity-60 grayscale' : ''}`}
-                  onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}
-                >
-                  <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleToggleRepo(repo.repo_full_name)}
-                      className="accent-primary h-4 w-4 rounded border-gray-300"
-                    />
-                  </div>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="font-mono text-sm font-medium truncate" title={repo.repo_full_name}>
-                        {repo.repo_full_name}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <div className="text-3xl font-bold tracking-tight">{repo.health_score}</div>
-                        <div className="text-xs text-muted-foreground mt-1">Health Score</div>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <GitPullRequest className="h-3.5 w-3.5" />
-                          {repo.pr_count}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <FileText className="h-3.5 w-3.5" />
-                          {repo.issue_count}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs ml-2 hover:bg-primary/10 hover:text-primary border-primary/20"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/repo/${repo.owner}/${repo.name}/audit`);
-                          }}
-                        >
-                          Audit
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+          <div className="space-y-8">
+            {/* PRs Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <GitPullRequest className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-medium">Pull Requests</h2>
+              </div>
 
-        {/* Recent Activity */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="border rounded-lg bg-card overflow-hidden">
-            <div className="px-6 py-4 border-b bg-muted/30 flex items-center justify-between">
-              <h3 className="font-medium text-sm">Recent Pull Requests</h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRefresh}>
-                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            <div className="p-0">
-              {recentPRs.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">No recent activity</div>
-              ) : (
-                <div className="divide-y">
-                  {recentPRs.map((pr: any) => (
+              <div className="border rounded-lg bg-card overflow-hidden divide-y">
+                {recentPRs.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">No active pull requests.</div>
+                ) : (
+                  recentPRs.map((pr: any) => (
                     <div key={pr.pr_number} className="p-4 hover:bg-muted/50 transition-colors">
                       <PRCard
                         prNumber={pr.pr_number}
@@ -216,40 +154,40 @@ const Dashboard = () => {
                         repoOwner={pr.repo_owner}
                         repoName={pr.repo_name}
                         validationStatus={pr.validation_status}
-                        compact={true}
+                        compact={false}
                       />
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="border rounded-lg bg-card overflow-hidden">
-            <div className="px-6 py-4 border-b bg-muted/30">
-              <h3 className="font-medium text-sm">Open Issues</h3>
-            </div>
-            <div className="p-0">
-              {recentIssues.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">No open issues</div>
-              ) : (
-                <div className="divide-y">
-                  {recentIssues.map((issue: any) => (
+            {/* Issues Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-medium">Assigned Issues</h2>
+              </div>
+
+              <div className="border rounded-lg bg-card overflow-hidden divide-y">
+                {recentIssues.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">No assigned issues.</div>
+                ) : (
+                  recentIssues.map((issue: any) => (
                     <div key={issue.issue_number} className="p-4 hover:bg-muted/50 transition-colors">
                       <IssueCard
                         issue={issue}
                         repoOwner={issue.repo_owner}
                         repoName={issue.repo_name}
-                        compact={true}
+                        compact={false}
                       />
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
-
+        )}
       </main >
     </div >
   );

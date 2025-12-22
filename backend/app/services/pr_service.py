@@ -9,110 +9,13 @@ from app.models.user import User
 from app.models.issue import Issue, ValidationResult
 from app.schemas.models import PRSummary
 from app.services.github import github_service
-from app.services.ai_review import ai_service
+from app.services.assistant_service import assistant
 
 class PRService:
-    async def list_prs(self, owner: str, repo_name: str, user: User, bg_tasks: BackgroundTasks = None) -> List[PRSummary]:
-        repo = await Repo.find_one(Repo.owner == owner, Repo.name == repo_name)
-        if not repo:
-            return []
+    # ... (lines 13-113)
 
-        # 1. Return DB Cache immediately
-        local_prs = await PullRequest.find(PullRequest.repo_id == repo.id).sort("-pr_number").to_list()
-        
-        # 2. Trigger Background Sync
-        if not local_prs:
-            # Sync immediately if no cache
-            await self.sync_prs_bg(owner, repo_name, user, repo.id)
-            local_prs = await PullRequest.find(PullRequest.repo_id == repo.id).sort("-pr_number").to_list()
-        elif bg_tasks:
-            # Background update if we have data
-            bg_tasks.add_task(self.sync_prs_bg, owner, repo_name, user, repo.id)
-            
-        # Map to summary
-        results = []
-        for pr in local_prs:
-            results.append(PRSummary(
-                pr_number=pr.pr_number,
-                title=pr.title,
-                author=pr.author,
-                created_at=pr.created_at,
-                github_url=pr.github_url,
-                health_score=pr.health_score,
-                validation_status=pr.validation_status
-            ))
-        return results
-
-    async def sync_prs_bg(self, owner: str, repo_name: str, user: User, repo_id: PydanticObjectId):
-        try:
-            gh_prs = await github_service.fetch_prs(owner, repo_name, user)
-            for item in gh_prs:
-                num = item["number"]
-                
-                # Fetch or Create
-                pr = await PullRequest.find_one(PullRequest.repo_id == repo_id, PullRequest.pr_number == num)
-                if not pr:
-                    pr = PullRequest(
-                        repo_id=repo_id,
-                        pr_number=num,
-                        title=item["title"],
-                        author=item["user"]["login"],
-                        created_at=datetime.strptime(item["created_at"], "%Y-%m-%dT%H:%M:%SZ"),
-                        github_url=item["html_url"],
-                        validation_status="pending"
-                    )
-                else:
-                    # Update basics
-                    pr.title = item["title"]
-                    pr.updated_at = datetime.utcnow()
-                
-                await pr.save()
-        except Exception as e:
-            print(f"Background PR Sync Error: {e}")
-
-    async def get_or_sync_pr(self, owner: str, repo_name: str, pr_number: int, user: User) -> Optional[PullRequest]:
-        repo = await Repo.find_one(Repo.owner == owner, Repo.name == repo_name)
-        if not repo: return None
-        
-        pr = await PullRequest.find_one(PullRequest.repo_id == repo.id, PullRequest.pr_number == pr_number)
-        if not pr:
-            gh_data = await github_service.fetch_pr(owner, repo_name, pr_number, user)
-            if not gh_data: return None
-            
-            pr = PullRequest(
-                repo_id=repo.id,
-                pr_number=pr_number,
-                title=gh_data["title"],
-                author=gh_data["user"]["login"],
-                created_at=datetime.strptime(gh_data["created_at"], "%Y-%m-%dT%H:%M:%SZ"),
-                github_url=gh_data["html_url"],
-                validation_status="pending"
-            )
-            await pr.save()
-            
-        return pr
-
-    async def run_review(self, owner: str, repo_name: str, issue_number: int, pr_number: int, user: User):
-        # 1. Fetch Data
-        repo = await Repo.find_one(Repo.owner == owner, Repo.name == repo_name)
-        if not repo: return None
-        
-        issue = await Issue.find_one(Issue.repo_id == repo.id, Issue.issue_number == issue_number)
-        pr_doc = await self.get_or_sync_pr(owner, repo_name, pr_number, user)
-        if not issue or not pr_doc: return None
-        
-        # 2. Get Diff & Body via Service
-        diff = await github_service.fetch_pr_diff(owner, repo_name, pr_number, user)
-        # Hack: Get body from PR (we should store it, but for now fetch again or use existing if fresh)
-        # Just fetch fresh PR data to be safe on body
-        pr_data = await github_service.fetch_pr(owner, repo_name, pr_number, user)
-        description = pr_data.get("body", "")
-        
-        # 3. Prepare Checklist
-        checklist_items = [{"id": i.id, "text": i.text} for i in issue.checklist]
-        
-        # 4. AI Analysis
-        r = await ai_service.perform_unified_review(pr_doc.title, description, diff, checklist_items)
+        # 4. AI Analysis (Verify Change Layer)
+        r = await assistant.verify_change(pr_doc.title, description, diff, checklist_items)
         
         # 5. Update PR
         pr_doc.code_health = r.get("code_health", [])

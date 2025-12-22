@@ -9,6 +9,7 @@ import { ExternalLink, TrendingUp, Settings as SettingsIcon } from 'lucide-react
 import { api } from '@/lib/api';
 import { IssueCard } from '@/components/IssueCard';
 import { PRCard } from '@/components/PRCard';
+import { RepoInsights } from '@/components/RepoInsights';
 import type { User, RepoSummary, Issue, PRSummary } from '@/types/api';
 
 const RepoPage = () => {
@@ -164,29 +165,13 @@ const RepoPage = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="issues" className="space-y-6">
+        <Tabs defaultValue="prs" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="issues">Issues</TabsTrigger>
             <TabsTrigger value="prs">Pull Requests</TabsTrigger>
+            <TabsTrigger value="issues">Issues</TabsTrigger>
+            <TabsTrigger value="insights">Insights</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="issues" className="space-y-4">
-            {issues.length === 0 ? (
-              <Card className="glass-card p-12 text-center">
-                <p className="text-muted-foreground">No issues found</p>
-              </Card>
-            ) : (
-              issues.map((issue) => (
-                <IssueCard
-                  key={issue.issue_number}
-                  issue={issue}
-                  repoOwner={owner}
-                  repoName={repo}
-                />
-              ))
-            )}
-          </TabsContent>
 
           <TabsContent value="prs" className="space-y-4">
             {pullRequests.length === 0 ? (
@@ -207,6 +192,27 @@ const RepoPage = () => {
                 />
               ))
             )}
+          </TabsContent>
+
+          <TabsContent value="issues" className="space-y-4">
+            {issues.length === 0 ? (
+              <Card className="glass-card p-12 text-center">
+                <p className="text-muted-foreground">No issues found</p>
+              </Card>
+            ) : (
+              issues.map((issue) => (
+                <IssueCard
+                  key={issue.issue_number}
+                  issue={issue}
+                  repoOwner={owner}
+                  repoName={repo}
+                />
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="insights">
+            <RepoInsights />
           </TabsContent>
 
           <TabsContent value="settings">
