@@ -11,20 +11,21 @@ from app.models.audit_schema import AuditResult, AuditCategories, Finding
 from app.services.assistant_service import assistant # Unified Service
 from app.core.security import decrypt_token
 
-router = APIRouter(prefix="/repos", tags=["audit"])
+router = APIRouter(prefix="/repos/{owner}/{repo}/audit", tags=["audit"])
 
-@router.post("/{repo_id}/audit/scan", response_model=ScanResult)
+@router.post("/scan", response_model=ScanResult)
 async def trigger_scan(
-    repo_id: PydanticObjectId, 
+    owner: str,
+    repo: str,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
-    repo = await Repo.get(repo_id)
-    if not repo:
+    repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
+    if not repo_doc:
         raise HTTPException(status_code=404, detail="Repo not found")
 
     new_scan = ScanResult(
-        repo_id=repo.id,
+        repo_id=repo_doc.id,
         status="pending",
         created_at=datetime.utcnow()
     )
@@ -42,22 +43,28 @@ async def trigger_scan(
     except:
         token = "" # Handle missing token gracefully or let assistant fail
         
-    repo_url = f"https://github.com/{repo.owner}/{repo.name}"
+    repo_url = f"https://github.com/{owner}/{repo}"
     
     background_tasks.add_task(assistant.assess_risk, new_scan, repo_url, token)
     
     return new_scan
 
-@router.get("/{repo_id}/audit", response_model=List[ScanResult])
+@router.get("", response_model=List[ScanResult])
 async def list_audits(
-    repo_id: PydanticObjectId, 
+    owner: str, 
+    repo: str,
     current_user: User = Depends(get_current_user)
 ):
-    return await ScanResult.find(ScanResult.repo_id == repo_id).sort("-created_at").to_list()
+    repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
+    if not repo_doc: return []
+    return await ScanResult.find(ScanResult.repo_id == repo_doc.id).sort("-created_at").to_list()
 
-@router.get("/{repo_id}/audit/latest", response_model=Optional[ScanResult])
+@router.get("/latest", response_model=Optional[ScanResult])
 async def get_latest_audit(
-    repo_id: PydanticObjectId,
+    owner: str, 
+    repo: str,
     current_user: User = Depends(get_current_user)
 ):
-    return await ScanResult.find_one(ScanResult.repo_id == repo_id).sort("-created_at")
+    repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
+    if not repo_doc: return None
+    return await ScanResult.find_one(ScanResult.repo_id == repo_doc.id).sort("-created_at")

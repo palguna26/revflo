@@ -58,6 +58,7 @@ class ScanResult(Document):
     engine_version: str = "1.0.0"
     risk_level: Literal["low", "medium", "high", "critical"] = "low"
     overall_score: int = 0
+    error_message: Optional[str] = None
     
     # Timing
     started_at: datetime = Field(default_factory=datetime.utcnow)
