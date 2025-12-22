@@ -117,7 +117,7 @@ export const RepoInsights = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {audit && (
+                    {audit && audit.created_at && (
                         <span className="text-xs text-muted-foreground">
                             Last snapshot: {new Date(audit.created_at).toLocaleDateString()}
                         </span>
@@ -154,11 +154,14 @@ export const RepoInsights = () => {
                                         {audit?.risk_level} Risk
                                     </Badge>
                                     <div className="flex-1 grid grid-cols-3 gap-4">
-                                        {audit?.findings.filter(f => f.severity === 'critical').slice(0, 3).map(f => (
-                                            <div key={f.id} className="text-xs border p-2 rounded bg-red-500/5 border-red-500/20 truncate" title={f.description}>
-                                                {f.file_path.split('/').pop()}
-                                            </div>
-                                        ))}
+                                        {(audit?.findings || [])
+                                            .filter(f => f.severity === 'critical')
+                                            .slice(0, 3)
+                                            .map(f => (
+                                                <div key={f.id} className="text-xs border p-2 rounded bg-red-500/5 border-red-500/20 truncate" title={f.description}>
+                                                    {f.file_path ? f.file_path.split('/').pop() : 'Unknown file'}
+                                                </div>
+                                            ))}
                                     </div>
                                 </div>
                             </CardContent>
@@ -182,7 +185,7 @@ export const RepoInsights = () => {
                         <Card>
                             <CardHeader><CardTitle className="flex items-center gap-2"><ShieldAlert className="h-4 w-4" /> Active Findings</CardTitle></CardHeader>
                             <CardContent className="max-h-[300px] overflow-y-auto space-y-3">
-                                {audit?.findings.map(f => (
+                                {(audit?.findings || []).map(f => (
                                     <div key={f.id} className="p-3 border rounded-md text-sm">
                                         <div className="flex items-center gap-2 mb-1">
                                             <Badge variant="outline" className={`text-[10px] uppercase ${f.severity === 'critical' ? 'text-red-500' : 'text-orange-500'}`}>

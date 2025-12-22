@@ -11,7 +11,31 @@ from app.services.assistant_service import assistant
 from bson import ObjectId
 
 class IssueService:
-    # ... (lines 13-103 same)
+    async def list_issues(self, owner: str, repo: str, user: User, background_tasks: BackgroundTasks) -> List[Issue]:
+        repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
+        if not repo_doc:
+            return []
+            
+        # Background sync
+        token = user.access_token
+        # Trigger background sync if needed (optional, simplistic for now)
+        # background_tasks.add_task(self._sync_issues_task, repo_doc, token)
+
+        return await Issue.find(Issue.repo_id == repo_doc.id).sort("-created_at").to_list()
+
+    async def get_or_sync_issue(self, owner: str, repo: str, issue_number: int, user: User, background_tasks: BackgroundTasks) -> Optional[Issue]:
+        repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
+        if not repo_doc:
+            return None
+            
+        issue = await Issue.find_one(Issue.repo_id == repo_doc.id, Issue.issue_number == issue_number)
+        
+        # If not found or stale, we could sync. For now just return what we have or try fetch from GH if missing
+        if not issue and user.access_token:
+             # Just a stub for sync logic if needed here
+             pass
+             
+        return issue
 
     async def _generate_checklist_task(self, issue_id: PydanticObjectId, title: str, body: str):
         issue = await Issue.get(issue_id)
