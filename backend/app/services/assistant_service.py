@@ -55,5 +55,20 @@ class RevFloAssistant:
         """
         await self._scanner._process_scan(scan_record, repo_url, token)
 
+    async def generate_fix(self, issue_description: str, code_snippet: str) -> str:
+        """
+        Expose Fix Generation from Qodo (Layer 2)
+        """
+        return await self._qodo.generate_fix(issue_description, code_snippet)
+
+    async def validate_checklist(self, diff: str, checklist: List[Dict]) -> List[Dict]:
+        """
+        Expose Checklist Validation from CodeAnt (Layer 2)
+        Returns list of checklist results.
+        """
+        # Title and description are optional for just checklist validation in this context
+        result = await self._codeant.review_diff(title="Checklist Validation", description="N/A", diff=diff, checklist=checklist)
+        return result.get("checklist_status", [])
+
 # Singleton Instance
 assistant = RevFloAssistant()

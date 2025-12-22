@@ -1,7 +1,7 @@
 from typing import List
 from app.models.pr import PullRequest
 from app.models.issue import Issue
-from app.services.ai_review import ai_service
+from app.services.assistant_service import assistant
 import asyncio
 
 class ValidationService:
@@ -39,7 +39,7 @@ class ValidationService:
             return "needs_work", []
 
         # Call AI specific validation with the PR diff
-        results = await ai_service.validate_checklist(diff, input_items)
+        results = await assistant.validate_checklist(diff, input_items)
         
         # Construct updated checklist items for the PR Manifest
         # The schema uses app.models.pr.ChecklistItem

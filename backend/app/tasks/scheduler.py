@@ -3,7 +3,7 @@ from app.models.pr import PullRequest
 from app.models.repo import Repo
 from app.models.user import User
 from app.models.issue import Issue
-from app.services.ai_review import ai_service
+from app.services.assistant_service import assistant
 from app.services.github import github_service
 from app.services.pr_service import pr_service
 from app.services.issue_service import issue_service
@@ -90,7 +90,7 @@ async def job_validate_pending_prs():
                 # For now leave pending or set to 'no_checklist'
                 continue
 
-            review_result = await ai_service.perform_unified_review(pr.title, body, diff_text, checklist_definitions)
+            review_result = await assistant.verify_change(pr.title, body, diff_text, checklist_definitions)
             
             # 5. Persist (Code Logic Duplicated from pr_service.run_review - should ideally reuse)
             # For simplicity, we manually update here or call `pr_service` methods if we refactor `run_review` to take data.
