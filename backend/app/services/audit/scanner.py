@@ -270,7 +270,7 @@ class AuditScanner:
                             # V1 Proxy for non-Python files
                             complexity = self._proxy_complexity(lines)
                         
-                       metrics[rel_path] = {
+                        metrics[rel_path] = {
                             'complexity': complexity,
                             'loc': loc,
                             'indent_depth': indent_depth
