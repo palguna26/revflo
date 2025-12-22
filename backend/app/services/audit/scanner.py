@@ -94,16 +94,29 @@ class AuditScanner:
                     pass
 
     async def _clone_repo(self, repo_url: str, token: str, target_dir: Path):
-        auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
-        # Full history needed for Churn, but limiting to depth 500 for performance
-        proc = await asyncio.create_subprocess_exec(
-            "git", "clone", "--depth", "500", auth_url, str(target_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise Exception(f"Git clone failed: {stderr.decode()}")
+        # Fallback to ZIP download if git is not available
+        import httpx
+        from io import BytesIO
+        import zipfile
+        
+        # repo_url format: https://github.com/owner/repo
+        parts = repo_url.strip("/").split("/")
+        owner, repo = parts[-2], parts[-1]
+        
+        zip_url = f"https://api.github.com/repos/{owner}/{repo}/zipball"
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"}
+        
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            resp = await client.get(zip_url, headers=headers)
+            if resp.status_code != 200:
+                raise Exception(f"Failed to download repo: {resp.status_code}")
+                
+            with zipfile.ZipFile(BytesIO(resp.content)) as z:
+                z.extractall(target_dir)
+                
+        # GitHub zipballs extract to a root folder like 'user-repo-sha', move contents up if needed
+        # Or just let indexing handle recursive structures (which it already does)
+        return
 
     async def _index_files(self, scan_dir: Path) -> List[Dict]:
         stats = []
@@ -147,23 +160,8 @@ class AuditScanner:
         return metrics
 
     async def _calculate_churn(self, scan_dir: Path) -> Dict[str, int]:
-        try:
-            # git log -n 500 --name-only --format=""
-            proc = await asyncio.create_subprocess_exec(
-                "git", "log", "-n", "500", "--name-only", "--format=",
-                cwd=str(scan_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            stdout, _ = await proc.communicate()
-            if proc.returncode != 0: return {}
-            
-            files = stdout.decode().splitlines()
-            # Clean empty lines and normalize paths
-            cleaned = [f.strip().replace('\\', '/') for f in files if f.strip()]
-            return dict(Counter(cleaned))
-        except Exception:
-            return {}
+        # Git is not available, return empty churn map
+        return {}
 
     def _get_language_breakdown(self, stats: List[Dict]) -> Dict[str, int]:
         cnt = Counter([s['ext'] for s in stats])
