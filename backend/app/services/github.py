@@ -99,6 +99,52 @@ class GitHubService:
             except Exception as e:
                 # Graceful degradation: if API fails, return 0 (no churn data)
                 return 0
-
+    
+    async def post_pr_comment(self, owner: str, repo: str, pr_number: int, body: str, user: User) -> Dict:
+        """
+        Post a general comment on a PR (issue comment).
+        Uses the issues endpoint since PR comments are also issue comments.
+        """
+        async with await self.get_client(user) as client:
+            resp = await client.post(
+                f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments",
+                json={"body": body}
+            )
+            resp.raise_for_status()
+            return resp.json()
+    
+    async def post_pr_review_comment(
+        self, 
+        owner: str, 
+        repo: str, 
+        pr_number: int, 
+        commit_id: str, 
+        path: str, 
+        body: str, 
+        line: int, 
+        user: User
+    ) -> Dict:
+        """
+        Post an inline review comment on a specific file/line in a PR.
+        
+        Args:
+            commit_id: SHA of the commit to comment on
+            path: Relative path to the file
+            body: Comment text (markdown supported)
+            line: Line number in the diff to comment on
+        """
+        async with await self.get_client(user) as client:
+            resp = await client.post(
+                f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments",
+                json={
+                    "body": body,
+                    "commit_id": commit_id,
+                    "path": path,
+                    "line": line,
+                    "side": "RIGHT"  # Comment on the new version of the file
+                }
+            )
+            resp.raise_for_status()
+            return resp.json()
 
 github_service = GitHubService()

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { ScanResult, RiskItem, AuditReport } from "@/types/api";
+import { ScanResult, RiskItem, AuditReport, PRSummary } from "@/types/api";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
     Loader2, AlertTriangle, CheckCircle, XCircle, Shield, Zap, Activity,
-    ArrowRight, BarChart3, Layers, GitCommit, AlertOctagon, TrendingUp
+    ArrowRight, BarChart3, Layers, GitCommit, AlertOctagon, TrendingUp, MessageSquare
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +40,7 @@ export default function AuditResult() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [repoId, setRepoId] = useState<string | null>(null);
+    const [postingToPR, setPostingToPR] = useState<number | null>(null);
 
     useEffect(() => {
         api.getRepo(owner!, repo!).then((r) => {
@@ -50,14 +51,22 @@ export default function AuditResult() {
     }, [owner, repo]);
 
     const { data: scan, isLoading, isError } = useQuery({
-        queryKey: ["audit", repoId],
-        queryFn: () => api.getLatestAudit(repoId!),
-        enabled: !!repoId,
+        queryKey: ["audit", owner, repo],
+        queryFn: () => api.getRepoAudit(owner!, repo!),
+        enabled: !!owner && !!repo,
+        retry: false
+    });
+
+    // Fetch open PRs for posting audit
+    const { data: openPRs = [] } = useQuery({
+        queryKey: ["prs", owner, repo],
+        queryFn: () => api.getPRs(owner!, repo!),
+        enabled: !!owner && !!repo,
         retry: false
     });
 
     const triggerScan = useMutation({
-        mutationFn: () => api.triggerAuditScan(repoId!),
+        mutationFn: () => api.triggerRepoAudit(owner!, repo!),
         onSuccess: () => {
             toast({ title: "Scan Triggered", description: "Audit has started in the background." });
             queryClient.invalidateQueries({ queryKey: ["audit", repoId] });
@@ -70,6 +79,26 @@ export default function AuditResult() {
             });
         }
     });
+
+    const handlePostToPR = async (prNumber: number) => {
+        setPostingToPR(prNumber);
+        try {
+            const result = await api.postAuditToPR(owner!, repo!, prNumber, 'critical_high');
+            toast({
+                title: "Audit Posted!",
+                description: `${result.posted_count} comments posted to PR #${prNumber}${result.warnings?.length ? ' (with warnings)' : ''}`,
+            });
+        } catch (error: any) {
+            console.error('Failed to post audit to PR:', error);
+            toast({
+                title: "Failed to Post",
+                description: error.message || 'Could not post audit findings to PR',
+                variant: "destructive"
+            });
+        } finally {
+            setPostingToPR(null);
+        }
+    };
 
     if (!repoId) return <div className="h-screen bg-background flex items-center justify-center"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>;
 
@@ -118,6 +147,49 @@ export default function AuditResult() {
             </div>
 
             <main className="container mx-auto max-w-7xl px-4 py-10 space-y-12">
+
+                {/* V2 Feature: PR Comment Integration */}
+                {scan && scan.report && openPRs.length > 0 && (
+                    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent animate-in fade-in slide-in-from-top-4 duration-500">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <MessageSquare className="h-5 w-5 text-primary" />
+                                <CardTitle>Post Audit to Pull Requests</CardTitle>
+                            </div>
+                            <CardDescription>
+                                Share critical and high severity findings as comments on your open PRs (V2 Feature)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {openPRs.map((pr: any) => (
+                                    <div key={pr.pr_number} className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <Badge variant="outline" className="font-mono text-xs">#{pr.pr_number}</Badge>
+                                                <span className="font-medium truncate">{pr.title}</span>
+                                            </div>
+                                            <span className="text-sm text-muted-foreground">by {pr.author}</span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => handlePostToPR(pr.pr_number)}
+                                            disabled={postingToPR === pr.pr_number}
+                                            className="ml-4 shrink-0"
+                                        >
+                                            {postingToPR === pr.pr_number ? (
+                                                <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Posting...</>
+                                            ) : (
+                                                <><MessageSquare className="mr-2 h-3 w-3" /> Post Audit</>
+                                            )}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Empty State / Error */}
                 {isError && !scan && (

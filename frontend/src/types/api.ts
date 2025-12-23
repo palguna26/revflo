@@ -129,3 +129,50 @@ export interface Notification {
   created_at: string;
   read: boolean;
 }
+
+// Audit types
+export interface RiskItem {
+  id: string;
+  rule_type: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  file_path: string;
+  line_number?: number;
+  description: string;
+  explanation?: string;
+  metrics?: Record<string, any>;
+}
+
+export interface AuditReport {
+  executive_takeaway: string;
+  summary: {
+    maintainability: number;
+    security: number;
+    performance: number;
+    testing_confidence: number;
+  };
+  top_risks: RiskItem[];
+  fragility_map: {
+    high_churn_low_quality: string[];
+    complex_no_tests: string[];
+    large_single_owner: string[];
+  };
+  roadmap: {
+    fix_now: string[];
+    fix_next: string[];
+    defer: string[];
+  };
+}
+
+export interface ScanResult {
+  id: string;
+  repo_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+  overall_score?: number;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  report?: AuditReport;
+  engine_version?: string;
+  commit_sha?: string;
+  raw_metrics?: Record<string, any>;
+}

@@ -151,4 +151,21 @@ export const api = {
       body: JSON.stringify({}),
     });
   },
+
+  async getPRs(owner: string, repo: string): Promise<PRSummary[]> {
+    return request<PRSummary[]>(`/repos/${owner}/${repo}/prs`);
+  },
+
+  async postAuditToPR(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    severityFilter: 'all' | 'critical_high' | 'critical' = 'critical_high'
+  ): Promise<any> {
+    return request<any>(
+      `/repos/${owner}/${repo}/audit/pr/${prNumber}/post-comments?severity_filter=${severityFilter}`,
+      { method: 'POST' }
+    );
+  },
 };
+
