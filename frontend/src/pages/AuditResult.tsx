@@ -58,12 +58,29 @@ export default function AuditResult() {
     });
 
     // Fetch open PRs for posting audit
-    const { data: openPRs = [] } = useQuery({
+    const { data: openPRs = [], isLoading: isPRsLoading, error: prsError } = useQuery({
         queryKey: ["prs", owner, repo],
-        queryFn: () => api.getPRs(owner!, repo!),
+        queryFn: async () => {
+            console.log('Fetching PRs for', owner, repo);
+            const prs = await api.getPRs(owner!, repo!);
+            console.log('Fetched PRs:', prs);
+            return prs;
+        },
         enabled: !!owner && !!repo,
         retry: false
     });
+
+    // Debug logging
+    useEffect(() => {
+        console.log('PR Integration Debug:', {
+            hasScan: !!scan,
+            hasReport: !!scan?.report,
+            openPRsCount: openPRs.length,
+            openPRs,
+            isPRsLoading,
+            prsError
+        });
+    }, [scan, openPRs, isPRsLoading, prsError]);
 
     const triggerScan = useMutation({
         mutationFn: () => api.triggerRepoAudit(owner!, repo!),
@@ -148,8 +165,8 @@ export default function AuditResult() {
 
             <main className="container mx-auto max-w-7xl px-4 py-10 space-y-12">
 
-                {/* V2 Feature: PR Comment Integration */}
-                {scan && scan.report && openPRs.length > 0 && (
+                {/* V2 Feature: PR Comment Integration - DEBUG VERSION */}
+                {scan && scan.report && (
                     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent animate-in fade-in slide-in-from-top-4 duration-500">
                         <CardHeader>
                             <div className="flex items-center gap-2">
@@ -161,32 +178,56 @@ export default function AuditResult() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-3">
-                                {openPRs.map((pr: any) => (
-                                    <div key={pr.pr_number} className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Badge variant="outline" className="font-mono text-xs">#{pr.pr_number}</Badge>
-                                                <span className="font-medium truncate">{pr.title}</span>
-                                            </div>
-                                            <span className="text-sm text-muted-foreground">by {pr.author}</span>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            onClick={() => handlePostToPR(pr.pr_number)}
-                                            disabled={postingToPR === pr.pr_number}
-                                            className="ml-4 shrink-0"
-                                        >
-                                            {postingToPR === pr.pr_number ? (
-                                                <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Posting...</>
-                                            ) : (
-                                                <><MessageSquare className="mr-2 h-3 w-3" /> Post Audit</>
-                                            )}
-                                        </Button>
-                                    </div>
-                                ))}
+                            {/* Debug Info */}
+                            <div className="mb-4 p-3 bg-muted rounded text-xs font-mono">
+                                <div>Loading PRs: {isPRsLoading ? 'Yes' : 'No'}</div>
+                                <div>PRs Found: {openPRs.length}</div>
+                                <div>Error: {prsError ? String(prsError) : 'None'}</div>
                             </div>
+
+                            {isPRsLoading ? (
+                                <div className="flex items-center justify-center p-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                    <span className="ml-2">Loading open pull requests...</span>
+                                </div>
+                            ) : prsError ? (
+                                <div className="p-4 border border-destructive/20 bg-destructive/10 rounded text-sm">
+                                    <p className="font-semibold">Failed to load PRs</p>
+                                    <p className="text-muted-foreground mt-1">{String(prsError)}</p>
+                                </div>
+                            ) : openPRs.length === 0 ? (
+                                <div className="text-center p-8 text-muted-foreground">
+                                    <p>No open pull requests found for this repository.</p>
+                                    <p className="text-xs mt-2">Create a PR to enable audit posting.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {openPRs.map((pr: any) => (
+                                        <div key={pr.pr_number} className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Badge variant="outline" className="font-mono text-xs">#{pr.pr_number}</Badge>
+                                                    <span className="font-medium truncate">{pr.title}</span>
+                                                </div>
+                                                <span className="text-sm text-muted-foreground">by {pr.author}</span>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() => handlePostToPR(pr.pr_number)}
+                                                disabled={postingToPR === pr.pr_number}
+                                                className="ml-4 shrink-0"
+                                            >
+                                                {postingToPR === pr.pr_number ? (
+                                                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Posting...</>
+                                                ) : (
+                                                    <><MessageSquare className="mr-2 h-3 w-3" /> Post Audit</>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -364,7 +405,7 @@ function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
             <CardHeader className="pb-3 pt-5 px-5">
                 <div className="flex justify-between items-start gap-4">
                     <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                        {risk.title}
+                        {risk.rule_type}
                     </h3>
                     <Badge variant="outline" className={`${styles.color} ${styles.bg} ${styles.border} uppercase text-[10px] tracking-wider`}>
                         {risk.severity}
@@ -373,28 +414,26 @@ function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-4">
                 <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                    {risk.why_it_matters}
+                    {risk.explanation || risk.description}
                 </p>
 
                 <div className="pt-2 border-t border-border/40">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span>Recommended Action</span>
+                        <span>Description</span>
                     </div>
                     <p className="text-sm font-medium text-foreground bg-muted/50 p-3 rounded-md border border-border/40">
-                        {risk.recommended_action}
+                        {risk.description}
                     </p>
                 </div>
 
-                <div className="flex flex-wrap gap-1 pt-1">
-                    {risk.affected_areas.slice(0, 3).map((area, i) => (
-                        <span key={i} className="text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">
-                            {area}
+                {risk.file_path && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                        <span className="text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">
+                            {risk.file_path}
+                            {risk.line_number && `:${risk.line_number}`}
                         </span>
-                    ))}
-                    {risk.affected_areas.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground px-1 py-0.5">+ {risk.affected_areas.length - 3}</span>
-                    )}
-                </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
