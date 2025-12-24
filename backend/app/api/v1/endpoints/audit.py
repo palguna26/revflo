@@ -69,85 +69,61 @@ async def get_latest_audit(
     if not repo_doc: return None
     return await ScanResult.find(ScanResult.repo_id == repo_doc.id).sort("-created_at").first_or_none()
 
-@router.post("/pr/{pr_number}/post-comments")
-async def post_audit_to_pr(
+@router.get("/history")
+async def get_audit_history(
     owner: str,
     repo: str,
-    pr_number: int,
-    severity_filter: str = "critical_high",  # Query param: all, critical_high, critical
+    days: int = 90,  # Default to last 90 days
     current_user: User = Depends(get_current_user)
 ):
     """
-    Post the latest audit findings as comments on a GitHub PR.
-    V2 Feature: PR Comment Integration
+    Get historical audit data for time-series visualization.
+    V2 Feature: Dashboard Time-Series
     
-    Args:
-        severity_filter: Filter for which findings to post
-            - "all": All findings
-            - "critical_high": Only critical and high severity (default)
-            - "critical": Only critical severity
+    Returns completed scans from the last N days with key metrics.
     """
-    from app.services.pr_audit_service import pr_audit_service
-    from app.services.github import github_service
+    from datetime import datetime, timedelta
     
-    # Get the repository
     repo_doc = await Repo.find_one(Repo.owner == owner, Repo.name == repo)
     if not repo_doc:
         raise HTTPException(status_code=404, detail="Repository not found")
     
-    # Get the latest completed audit scan
-    scan = await ScanResult.find_one(
+    # Calculate date threshold
+    since_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Query completed scans since date
+    scans = await ScanResult.find(
         ScanResult.repo_id == repo_doc.id,
-        ScanResult.status == "completed"
-    ).sort([("created_at", -1)])
+        ScanResult.status == "completed",
+        ScanResult.started_at >= since_date
+    ).sort("started_at").to_list()
     
-    if not scan:
-        raise HTTPException(
-            status_code=404, 
-            detail="No completed audit scans found. Please run an audit scan first."
-        )
-    
-    # Ensure we have audit report with findings
-    if not scan.report or not scan.report.top_risks:
-        raise HTTPException(
-            status_code=400,
-            detail="Audit scan has no findings to post"
-        )
-    
-    # Fetch PR details to get commit SHA
-    try:
-        pr_data = await github_service.fetch_pr(owner, repo, pr_number, current_user)
-        if not pr_data:
-            raise HTTPException(status_code=404, detail="Pull request not found")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch PR details: {str(e)}")
-    
-    commit_sha = pr_data["head"]["sha"]
-    
-    # Post findings to PR
-    try:
-        result = await pr_audit_service.post_audit_to_pr(
-            owner, repo, pr_number,
-            scan.report.top_risks,
-            commit_sha,
-            current_user,
-            severity_filter
-        )
+    # Transform to time-series format
+    history = []
+    for scan in scans:
+        # Count findings by severity
+        findings_count = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        if scan.report and scan.report.top_risks:
+            for risk in scan.report.top_risks:
+                severity = risk.severity.lower() if hasattr(risk, 'severity') else 'medium'
+                if severity in findings_count:
+                    findings_count[severity] += 1
         
-        return {
-            "status": "success",
-            "pr_number": pr_number,
-            "commit_sha": commit_sha[:7],
-            "audit_id": str(scan.id),
-            "posted_count": result["posted_count"],
-            "error_count": result["error_count"],
-            "warnings": result.get("warnings", []),
-            "filtered_findings_count": result.get("filtered_findings_count", 0),
-            "total_findings_count": result.get("total_findings_count", 0),
-            "details": result
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to post audit comments: {str(e)}"
-        )
+        history.append({
+            "timestamp": scan.started_at.isoformat(),
+            "overall_score": scan.overall_score or 0,
+            "risk_level": scan.risk_level,
+            "categories": {
+                "maintainability": scan.categories.maintainability if scan.categories else 0,
+                "security": scan.categories.security if scan.categories else 0,
+                "performance": scan.categories.performance if scan.categories else 0,
+                "code_quality": scan.categories.code_quality if scan.categories else 0,
+                "architecture": scan.categories.architecture if scan.categories else 0,
+                "dependencies": scan.categories.dependencies if scan.categories else 0
+            },
+            "findings_count": findings_count,
+            "commit_sha": scan.commit_sha or "",
+            "engine_version": scan.engine_version or "1.0.0"
+        })
+    
+    return history

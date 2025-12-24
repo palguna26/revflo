@@ -167,5 +167,9 @@ export const api = {
       { method: 'POST' }
     );
   },
+
+  async getAuditHistory(owner: string, repo: string, days: number = 90): Promise<any[]> {
+    return request<any[]>(`/repos/${owner}/${repo}/audit/history?days=${days}`);
+  },
 };
 

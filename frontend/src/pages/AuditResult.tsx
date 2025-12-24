@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TrendChart } from "@/components/TrendChart";
 import {
     Loader2, AlertTriangle, CheckCircle, XCircle, Shield, Zap, Activity,
     ArrowRight, BarChart3, Layers, GitCommit, AlertOctagon, TrendingUp, MessageSquare
@@ -41,6 +43,7 @@ export default function AuditResult() {
     const queryClient = useQueryClient();
     const [repoId, setRepoId] = useState<string | null>(null);
     const [postingToPR, setPostingToPR] = useState<number | null>(null);
+    const [selectedRange, setSelectedRange] = useState(90); // days
 
     useEffect(() => {
         api.getRepo(owner!, repo!).then((r) => {
@@ -81,6 +84,14 @@ export default function AuditResult() {
             prsError
         });
     }, [scan, openPRs, isPRsLoading, prsError]);
+
+    // V2: Fetch historical audit data for trends
+    const { data: historyData = [] } = useQuery({
+        queryKey: ["audit-history", owner, repo, selectedRange],
+        queryFn: () => api.getAuditHistory(owner!, repo!, selectedRange),
+        enabled: !!owner && !!repo,
+        retry: false
+    });
 
     const triggerScan = useMutation({
         mutationFn: () => api.triggerRepoAudit(owner!, repo!),
@@ -230,6 +241,52 @@ export default function AuditResult() {
                             )}
                         </CardContent>
                     </Card>
+                )}
+
+                {/* V2 Feature: Quality Trends */}
+                {historyData.length > 1 && (
+                    <section className="space-y-6 animate-in fade-in slide-in-from-top-6 duration-500">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-2xl font-bold flex items-center gap-2">
+                                <TrendingUp className="h-6 w-6 text-primary" />
+                                Quality Trends
+                            </h2>
+                            <Select value={String(selectedRange)} onValueChange={(v) => setSelectedRange(Number(v))}>
+                                <SelectTrigger className="w-36">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="30">Last 30 Days</SelectItem>
+                                    <SelectItem value="90">Last 90 Days</SelectItem>
+                                    <SelectItem value="365">Last Year</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid gap-6">
+                            <TrendChart
+                                data={historyData}
+                                metric="overall_score"
+                                title="Overall Health Score"
+                            />
+                            <TrendChart
+                                data={historyData}
+                                metric="categories"
+                                title="Category Scores Over Time"
+                            />
+                            <TrendChart
+                                data={historyData}
+                                metric="findings"
+                                title="Findings by Severity"
+                            />
+                        </div>
+
+                        <div className="glass-card p-4 rounded-lg bg-muted/30">
+                            <p className="text-sm text-muted-foreground">
+                                <span className="font-semibold">💡 Looking for patterns?</span> Track your progress over time to identify improvements and catch quality degradation early.
+                            </p>
+                        </div>
+                    </section>
                 )}
 
                 {/* Empty State / Error */}
