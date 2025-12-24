@@ -1,0 +1,71 @@
+# RevFlo Configuration File
+# Customize audit rules and thresholds for your repository
+
+version: "1.0"
+
+# Rule Configuration
+# Each rule can be enabled/disabled and have custom thresholds and severity
+rules:
+  # Hotspot: High complexity + High churn
+  hotspot:
+    enabled: true
+    thresholds:
+      complexity: 25  # Cyclomatic complexity threshold
+      churn: 10       # Number of commits in last 90 days
+    severity: critical  # critical, high, medium, low
+  
+  # Deep Nesting: Excessive indentation depth
+  deep_nesting:
+    enabled: true
+    thresholds:
+      indent_depth: 6  # Maximum indentation levels
+    severity: high
+  
+  # Large File: Files that are too long
+  large_file:
+    enabled: true
+    thresholds:
+      loc: 300  # Lines of code threshold
+    severity: medium
+  
+  # Complex Module: High complexity without churn consideration
+  complex_module:
+    enabled: true
+    thresholds:
+      complexity: 35  # Cyclomatic complexity threshold
+    severity: high
+  
+  # No Tests: Files without test coverage
+  no_tests:
+    enabled: true
+    thresholds:
+      min_loc: 100  # Only flag files above this size
+    severity: medium
+
+# Global Settings
+settings:
+  # PR Comment Integration (V2 Feature)
+  pr_comments:
+    enabled: true
+    severity_filter: critical_high  # all, critical_high, critical
+
+# Examples of customization:
+# 
+# 1. Make hotspot detection more sensitive:
+#    hotspot:
+#      thresholds:
+#        complexity: 15  # Lower threshold = more findings
+#        churn: 5
+#
+# 2. Disable a rule:
+#    no_tests:
+#      enabled: false
+#
+# 3. Change severity levels:
+#    large_file:
+#      severity: low  # Downgrade from medium
+#
+# 4. Stricter quality standards:
+#    large_file:
+#      thresholds:
+#        loc: 200  # Smaller files required

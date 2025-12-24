@@ -79,6 +79,13 @@ class AuditScanner:
             logger.info(f"Cloning {repo_url}")
             await self._clone_repo(repo_url, token, scan_dir)
             
+            # V2 Feature: Load custom configuration
+            from app.services.audit.config_parser import RevFloConfig
+            from app.services.audit.risk_engine import create_risk_engine
+            
+            config = RevFloConfig.from_file(scan_dir)
+            logger.info(f"Loaded RevFlo config: {config.get_enabled_rules_count()} rules enabled")
+            
             file_stats = await self._index_files(scan_dir)
             complexity_map = await self._calculate_complexity(scan_dir)
             
@@ -97,8 +104,10 @@ class AuditScanner:
                 stat['indent_depth'] = m.get('indent_depth', 0)
                 stat['has_test'] = test_coverage_map.get(stat['path'], False)  # V2: Test coverage
 
-            # --- Stage 2: Risk Analysis (Deterministic) ---
-            top_risks = risk_engine.analyze(file_stats, churn_map)
+            # --- Stage 2: Risk Analysis (Deterministic with Custom Config) ---
+            # V2: Use custom risk engine with loaded configuration
+            custom_risk_engine = create_risk_engine(config)
+            top_risks = custom_risk_engine.analyze(file_stats, churn_map)
             
             # --- Stage 3: Deterministic Scoring ---
             scan.overall_score = calculate_score(top_risks)

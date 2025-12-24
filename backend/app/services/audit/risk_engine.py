@@ -1,80 +1,128 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.models.scan import RiskItem
+from app.services.audit.config_parser import RevFloConfig
+import uuid
 
 class RiskEngine:
+    """
+    Deterministic risk analysis engine with configurable rules.
+    V2: Now supports custom thresholds and severity via RevFloConfig.
+    """
+    
+    def __init__(self, config: RevFloConfig = None):
+        """Initialize with custom or default configuration."""
+        self.config = config or RevFloConfig()
+    
     def analyze(self, file_metrics: List[Dict[str, Any]], churn_metrics: Dict[str, int]) -> List[RiskItem]:
         """
-        Analyze metrics and return deterministic findings based on hard thresholds.
-        metrics format: [{'path': str, 'lox': int, 'complexity': int, 'indent_depth': int}]
+        Analyze metrics using configured rules and thresholds.
+        Returns deterministic findings based on hard rules.
         """
         findings = []
         
         for file in file_metrics:
             path = file['path']
             complexity = file.get('complexity', 0)
-            loc = file.get('loc', 0) 
+            loc = file.get('loc', 0)
             indent = file.get('indent_depth', 0)
             churn = churn_metrics.get(path, 0)
             
             # Rule 1: Hotspot (High Complexity + High Churn)
-            # Threshold: Complexity > 25 AND Churn > 10
-            if complexity > 25 and churn > 10:
-                findings.append(RiskItem(
-                    title=f"Hotspot: {path}",
-                    why_it_matters=f"High complexity ({complexity}) combined with frequent changes ({churn} commits) indicates a major stability risk.",
-                    affected_areas=[path],
-                    likelihood="high",
-                    recommended_action="Refactor to reduce complexity immediately.",
-                    severity="critical"
-                ))
+            if self.config.is_rule_enabled("hotspot"):
+                complexity_threshold = self.config.get_threshold("hotspot", "complexity")
+                churn_threshold = self.config.get_threshold("hotspot", "churn")
+                
+                if complexity > complexity_threshold and churn > churn_threshold:
+                    findings.append(RiskItem(
+                        id=str(uuid.uuid4()),
+                        rule_type="Hotspot",
+                        severity=self.config.get_severity("hotspot"),
+                        file_path=path,
+                        description=f"High complexity ({complexity}) combined with frequent changes ({churn} commits)",
+                        explanation=(
+                            f"This file has both high complexity AND high churn, making it a major stability risk. "
+                            f"Thresholds: complexity > {complexity_threshold}, churn > {churn_threshold}"
+                        ),
+                        metrics={"complexity": complexity, "churn": churn}
+                    ))
             
             # Rule 2: Deep Nesting (Cognitive Load)
-            # Threshold: Indentation > 6
-            elif indent > 6:
-                findings.append(RiskItem(
-                    title=f"Deeply Nested Logic: {path}",
-                    why_it_matters=f"Indentation depth of {indent} makes code hard to read and test.",
-                    affected_areas=[path],
-                    likelihood="medium",
-                    recommended_action="Flatten logic using early returns or extract methods.",
-                    severity="high" 
-                ))
-
-            # Rule 3: Large File (Monolith)
-            # Threshold: LOC > 300
-            elif loc > 300:
-                findings.append(RiskItem(
-                    title=f"Large File: {path}",
-                    why_it_matters=f"File size of {loc} lines exceeds 300, suggesting too many responsibilities.",
-                    affected_areas=[path],
-                    likelihood="low",
-                    recommended_action="Split into smaller, focused modules.",
-                    severity="medium"
-                ))
+            if self.config.is_rule_enabled("deep_nesting"):
+                indent_threshold = self.config.get_threshold("deep_nesting", "indent_depth")
                 
-            # Fallback Rule: High Complexity without Churn info
-            elif complexity > 35:
-                 findings.append(RiskItem(
-                    title=f"Complex Module: {path}",
-                    why_it_matters=f"Cyclomatic complexity of {complexity} is very high.",
-                    affected_areas=[path],
-                    likelihood="medium",
-                    recommended_action="Simplification required.",
-                    severity="high"
-                ))
+                if indent > indent_threshold:
+                    findings.append(RiskItem(
+                        id=str(uuid.uuid4()),
+                        rule_type="Deep Nesting",
+                        severity=self.config.get_severity("deep_nesting"),
+                        file_path=path,
+                        description=f"Indentation depth of {indent} makes code hard to read and test",
+                        explanation=(
+                            f"Deep nesting reduces code readability and increases cognitive load. "
+                            f"Threshold: indent_depth > {indent_threshold}"
+                        ),
+                        metrics={"indent_depth": indent}
+                    ))
             
-            # V2 Rule: Missing Tests (Only for substantial files)
-            # Threshold: LOC > 100 AND no test coverage
-            if loc > 100 and not file.get('has_test', False):
-                findings.append(RiskItem(
-                    title=f"No Tests: {path}",
-                    why_it_matters=f"File has {loc} lines but no test coverage detected.",
-                    affected_areas=[path],
-                    likelihood="medium",
-                    recommended_action="Add unit tests to improve code reliability.",
-                    severity="medium"
-                ))
-
+            # Rule 3: Large File (Monolith)
+            if self.config.is_rule_enabled("large_file"):
+                loc_threshold = self.config.get_threshold("large_file", "loc")
+                
+                if loc > loc_threshold:
+                    findings.append(RiskItem(
+                        id=str(uuid.uuid4()),
+                        rule_type="Large File",
+                        severity=self.config.get_severity("large_file"),
+                        file_path=path,
+                        description=f"File size of {loc} lines suggests too many responsibilities",
+                        explanation=(
+                            f"Large files often indicate violation of Single Responsibility Principle. "
+                            f"Threshold: loc > {loc_threshold}"
+                        ),
+                        metrics={"loc": loc}
+                    ))
+            
+            # Rule 4: Complex Module (High Complexity without Churn)
+            if self.config.is_rule_enabled("complex_module"):
+                complexity_threshold = self.config.get_threshold("complex_module", "complexity")
+                
+                if complexity > complexity_threshold:
+                    findings.append(RiskItem(
+                        id=str(uuid.uuid4()),
+                        rule_type="Complex Module",
+                        severity=self.config.get_severity("complex_module"),
+                        file_path=path,
+                        description=f"Cyclomatic complexity of {complexity} is very high",
+                        explanation=(
+                            f"High complexity makes code harder to understand, test, and maintain. "
+                            f"Threshold: complexity > {complexity_threshold}"
+                        ),
+                        metrics={"complexity": complexity}
+                    ))
+            
+            # Rule 5: No Tests (V2 Feature)
+            if self.config.is_rule_enabled("no_tests"):
+                min_loc = self.config.get_threshold("no_tests", "min_loc")
+                
+                if loc > min_loc and not file.get('has_test', False):
+                    findings.append(RiskItem(
+                        id=str(uuid.uuid4()),
+                        rule_type="No Tests",
+                        severity=self.config.get_severity("no_tests"),
+                        file_path=path,
+                        description=f"File has {loc} lines but no test coverage detected",
+                        explanation=(
+                            f"Substantial files without tests are risky and harder to refactor safely. "
+                            f"Threshold: loc > {min_loc} without tests"
+                        ),
+                        metrics={"loc": loc, "has_test": False}
+                    ))
+        
         return findings
 
+# Default instance uses default config (V1 behavior)
 risk_engine = RiskEngine()
+
+def create_risk_engine(config: RevFloConfig) -> RiskEngine:
+    """Factory function for creating RiskEngine with custom config."""
+    return RiskEngine(config)
