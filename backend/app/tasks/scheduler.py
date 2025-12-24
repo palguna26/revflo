@@ -54,17 +54,39 @@ async def job_validate_pending_prs():
     for pr in pending_prs:
         try:
             repo = await Repo.get(pr.repo_id)
-            if not repo: continue
+            if not repo: 
+                print(f"PR #{pr.pr_number}: Repo not found, skipping")
+                continue
             
-            # 1. User Resolution
+            # 1. User Resolution - Find user with valid token
             user = await User.find_one(User.login == repo.owner)
             if not user or not user.access_token:
                  user = await User.find_one(User.access_token != None)
-            if not user: continue
+            
+            # If still no valid user/token, skip this PR and mark for manual review
+            if not user or not user.access_token:
+                print(f"PR #{pr.pr_number} ({repo.owner}/{repo.name}): No valid GitHub token found, marking as needs_manual_review")
+                pr.validation_status = "needs_manual_review"
+                pr.summary = "Validation could not be performed due to missing GitHub access token. Please review manually."
+                await pr.save()
+                continue
             
             # 2. Fetch Data via Service (handling decryption)
-            diff_text = await github_service.fetch_pr_diff(repo.owner, repo.name, pr.pr_number, user)
-            pr_data = await github_service.fetch_pr(repo.owner, repo.name, pr.pr_number, user)
+            try:
+                diff_text = await github_service.fetch_pr_diff(repo.owner, repo.name, pr.pr_number, user)
+                pr_data = await github_service.fetch_pr(repo.owner, repo.name, pr.pr_number, user)
+            except Exception as e:
+                # If GitHub API call fails (401, 403, etc.), mark for manual review
+                if "401" in str(e) or "Unauthorized" in str(e):
+                    print(f"PR #{pr.pr_number}: GitHub authentication failed, marking as needs_manual_review")
+                    pr.validation_status = "needs_manual_review"
+                    pr.summary = "GitHub API authentication failed. Token may be expired or invalid."
+                    await pr.save()
+                    continue
+                else:
+                    # Other errors, re-raise to be caught by outer try/except
+                    raise
+            
             body = pr_data.get("body", "")
             
             # 3. Find Linked Issues
@@ -142,7 +164,8 @@ async def job_validate_pending_prs():
 
 def start_scheduler():
     scheduler.add_job(job_sync_github_data, 'interval', minutes=60)
-    scheduler.add_job(job_validate_pending_prs, 'interval', seconds=30)
+    # Run PR validations every 5 minutes instead of every 30 seconds
+    scheduler.add_job(job_validate_pending_prs, 'interval', minutes=5)
     scheduler.start()
 
 async def stop_scheduler():
