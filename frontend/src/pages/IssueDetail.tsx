@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -103,7 +102,6 @@ const IssueDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <main className="container px-4 py-8">
           <Skeleton className="h-32 rounded-lg mb-8" />
           <Skeleton className="h-96 rounded-lg" />
@@ -115,7 +113,6 @@ const IssueDetail = () => {
   if (!issue || !owner || !repo) {
     return (
       <div className="min-h-screen bg-background">
-        <Header user={user || undefined} repos={repos} />
         <main className="container px-4 py-8">
           <Card className="p-12 text-center">
             <p className="text-muted-foreground">Issue not found</p>
@@ -130,8 +127,6 @@ const IssueDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user || undefined} repos={repos} />
-
       <main className="container px-4 py-8 max-w-5xl">
         {/* Breadcrumb */}
         <div className="mb-6">

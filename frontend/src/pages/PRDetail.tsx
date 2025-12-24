@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,7 +61,6 @@ const PRDetailPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header loading={true} />
         <main className="container max-w-7xl px-4 py-8">
           <Skeleton className="h-24 w-full mb-6" />
           <div className="grid lg:grid-cols-3 gap-8">
@@ -102,8 +100,6 @@ const PRDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header user={user || undefined} repos={repos} />
-
       <main className="container max-w-7xl px-4 py-6">
         {/* Breadcrumb & Meta */}
         <div className="mb-6">
