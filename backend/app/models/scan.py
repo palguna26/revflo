@@ -5,12 +5,15 @@ from pydantic import Field, BaseModel
 from app.models.audit_schema import Finding, AuditCategories
 
 class RiskItem(BaseModel):
-    title: str
-    why_it_matters: str
-    affected_areas: List[str]
-    likelihood: Literal["high", "medium", "low"]
-    recommended_action: str
+    """V2: Updated model to match risk_engine.py output"""
+    id: str
+    rule_type: str  # "Hotspot", "Deep Nesting", "Large File", etc.
     severity: Literal["critical", "high", "medium", "low"]
+    file_path: str
+    description: str
+    explanation: str
+    metrics: dict = {}
+    line_number: Optional[int] = None  # For inline comments
 
 class AuditSummary(BaseModel):
     maintainability: str
