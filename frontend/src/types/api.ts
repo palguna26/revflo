@@ -30,6 +30,12 @@ export interface PRSummary {
   merge_decision?: boolean;
   block_reason?: 'BLOCK_CHECKLIST_FAILED' | 'BLOCK_INDETERMINATE_EVIDENCE' | 'BLOCK_SECURITY_CRITICAL' | 'BLOCK_INSUFFICIENT_ISSUE_SPEC' | null;
   github_url: string;
+  // V2: Control Plane sync fields
+  github_state?: 'open' | 'closed';
+  merged?: boolean;
+  merged_at?: string;
+  closed_at?: string;
+  last_synced_at?: string;
 }
 
 export interface ValidationResult {
@@ -64,6 +70,10 @@ export interface Issue {
   };
   checklist?: ChecklistItem[];
   github_url: string;
+  // V2: Control Plane sync fields
+  github_state?: 'open' | 'closed';
+  closed_at?: string;
+  last_synced_at?: string;
 }
 
 export interface TestResult {
