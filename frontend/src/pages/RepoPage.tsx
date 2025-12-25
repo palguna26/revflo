@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
+import { ExternalLink, TrendingUp, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { IssueCard } from '@/components/IssueCard';
 import { PRCard } from '@/components/PRCard';
@@ -22,28 +22,35 @@ const RepoPage = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [pullRequests, setPullRequests] = useState<PRSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = async () => {
+    if (!owner || !repo) return;
+
+    try {
+      const [repoDetails, issuesData, prsData] = await Promise.all([
+        api.getRepo(owner, repo),
+        api.getIssues(owner, repo),
+        api.getPullRequests(owner, repo),
+      ]);
+
+      setRepoData(repoDetails);
+      setIssues(issuesData);
+      setPullRequests(prsData);
+    } catch (error) {
+      console.error('Failed to load repo data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!owner || !repo) return;
-
-      try {
-        const [repoDetails, issuesData, prsData] = await Promise.all([
-          api.getRepo(owner, repo),
-          api.getIssues(owner, repo),
-          api.getPullRequests(owner, repo),
-        ]);
-
-        setRepoData(repoDetails);
-        setIssues(issuesData);
-        setPullRequests(prsData);
-      } catch (error) {
-        console.error('Failed to load repo data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadData();
   }, [owner, repo]);
 
