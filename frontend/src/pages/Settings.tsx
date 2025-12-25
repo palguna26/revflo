@@ -1,4 +1,3 @@
-import { Header } from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,7 +62,6 @@ export default function SettingsPage() {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <Header user={user || undefined} repos={repos} />
             <main className="container max-w-4xl px-4 py-8">
                 <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
                 <p className="text-muted-foreground mb-8">Manage your account settings and preferences.</p>
