@@ -67,13 +67,17 @@ async def get_recent_activity(current_user: User = Depends(get_current_user)):
     """
     Get aggregated recent activity (PRs and Issues) across all managed repositories.
     """
-    if not current_user.managed_repos:
+    # 1. Get Repos - if managed_repos is empty, get all installed repos (like /repos endpoint)
+    if not current_user.managed_repos or len(current_user.managed_repos) == 0:
+        repos = await Repo.find(Repo.is_installed == True).to_list()
+    else:
+        repos = await Repo.find(
+            {"repo_full_name": {"$in": current_user.managed_repos}}
+        ).to_list()
+    
+    if not repos:
         return {"prs": [], "issues": []}
-
-    # 1. Get Repo IDs
-    repos = await Repo.find(
-        {"repo_full_name": {"$in": current_user.managed_repos}}
-    ).to_list()
+    
     repo_ids = [r.id for r in repos]
     
     # Map for easy lookup of repo name by ID
