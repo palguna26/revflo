@@ -109,6 +109,13 @@ export const api = {
     });
   },
 
+  async removeRepo(fullName: string): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('/repos/remove', {
+      method: 'DELETE',
+      body: JSON.stringify({ full_name: fullName }),
+    });
+  },
+
   async runReview(owner: string, repo: string, issueNumber: number, prNumber: number): Promise<any> {
     return request<any>(`/repos/${owner}/${repo}/issues/${issueNumber}/pulls/${prNumber}/review`, {
       method: 'POST',

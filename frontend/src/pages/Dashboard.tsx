@@ -91,8 +91,8 @@ const Dashboard = () => {
               <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate('/add-repo')}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Repository
+            <Button size="sm" onClick={() => navigate('/settings')}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Manage Repositories
             </Button>
           </div>
         </div>
@@ -102,7 +102,7 @@ const Dashboard = () => {
           <div className="text-center py-20 border rounded-lg bg-card border-dashed">
             <h3 className="text-lg font-medium mb-2">No active work found</h3>
             <p className="text-muted-foreground mb-6">You don't have any recent PRs or assigned issues.</p>
-            <Button onClick={() => navigate('/add-repo')}>Connect a Repository</Button>
+            <Button onClick={() => navigate('/settings')}>Manage Repositories</Button>
           </div>
         ) : (
           <div className="space-y-8">

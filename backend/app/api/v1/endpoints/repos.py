@@ -20,14 +20,6 @@ async def sync_repo_stats(repo_doc: Repo, access_token: str):
     Fetch fresh stats from GitHub and update local DB.
     Also recalculate health score based on local PR analysis.
     """
-    # Token passed in is now decrypted (if called correctly below) OR we assume caller handles it.
-    # Actually, looking at list_repos below, we pass current_user.access_token which IS encrypted.
-    # So we should decrypt it here or in caller. Let's do it in caller for clarity, OR here.
-    # To minimize changes, let's keep signature but assume caller passes decrypted, OR decrypt here.
-    # It's safer to decrypt at the usage point if we're not sure.
-    # BUT `list_repos` passes `current_user.access_token`. 
-    # Let's decrypt it in `list_repos` and pass the raw token here.
-    
     async with httpx.AsyncClient() as client:
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -60,7 +52,6 @@ async def sync_repo_stats(repo_doc: Repo, access_token: str):
             print(f"Error syncing stats for {repo_doc.repo_full_name}: {e}")
 
     # 2. Recalculate Health Score based on LOCAL analyzed PRs
-    # (We don't want to query GitHub for this, we use our cached analyses)
     local_prs = await PullRequest.find(
         PullRequest.repo_id == repo_doc.id,
         PullRequest.validation_status != "pending" # Only count analyzed PRs
@@ -80,9 +71,14 @@ async def sync_repo_stats(repo_doc: Repo, access_token: str):
 
 @router.get("", response_model=List[Repo])
 async def list_repos(current_user: User = Depends(get_current_user)):
-    repos = await Repo.find(
-        {"repo_full_name": {"$in": current_user.managed_repos}}
-    ).to_list()
+    # If user has no managed_repos set or it's empty, return all installed repos
+    # This handles demo users and fresh accounts
+    if not current_user.managed_repos or len(current_user.managed_repos) == 0:
+        repos = await Repo.find(Repo.is_installed == True).to_list()
+    else:
+        repos = await Repo.find(
+            {"repo_full_name": {"$in": current_user.managed_repos}}
+        ).to_list()
     
     
     if not current_user.access_token:
@@ -167,8 +163,6 @@ async def add_repo(
     This fetches metadata from GitHub and upserts into the repos collection.
     """
     if "access_token" not in current_user.dict() or not current_user.access_token:
-         # Note: in Beanie definition I added access_token, hopefully it's populated. 
-         # previous code fetched from DB. Current `get_current_user` returns the User doc.
          raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No GitHub token stored for user",
@@ -233,3 +227,26 @@ async def add_repo(
         await current_user.save()
 
     return repo
+
+
+@router.delete("/remove", status_code=status.HTTP_200_OK)
+async def remove_repo(
+    full_name: str = Body(..., embed=True),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Remove a repository from the user's managed repos.
+    This doesn't delete the repo from DB, just removes it from the user's list.
+    """
+    if not current_user.managed_repos or full_name not in current_user.managed_repos:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not in your managed list"
+        )
+    
+    # Remove from managed list
+    current_user.managed_repos.remove(full_name)
+    current_user.updated_at = datetime.utcnow()
+    await current_user.save()
+    
+    return {"success": True, "message": f"Removed {full_name} from your managed repositories"}
