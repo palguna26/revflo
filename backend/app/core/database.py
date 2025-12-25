@@ -8,6 +8,8 @@ from app.models.pr import PullRequest
 from app.models.notification import Notification
 from app.models.scan import ScanResult
 from app.models.events import InternalEvent  # V2: Control Plane
+from app.models.validation import Checklist, PRRun, Verdict  # V2: PR Validation Pipeline
+from app.models.audit import AuditRun, AuditFinding  # V2: Audit Pipeline
 
 async def init_db():
     settings = get_settings()
@@ -23,6 +25,11 @@ async def init_db():
             PullRequest,
             Notification,
             ScanResult,
-            InternalEvent  # V2: Control Plane events
+            InternalEvent,  # V2: Control Plane events
+            Checklist,      # V2: PR Validation
+            PRRun,
+            Verdict,
+            AuditRun,       # V2: Repo Audit
+            AuditFinding
         ]
     )
