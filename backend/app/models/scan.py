@@ -5,15 +5,25 @@ from pydantic import Field, BaseModel
 from app.models.audit_schema import Finding, AuditCategories
 
 class RiskItem(BaseModel):
-    """V2: Updated model to match risk_engine.py output"""
-    id: str
-    rule_type: str  # "Hotspot", "Deep Nesting", "Large File", etc.
-    severity: Literal["critical", "high", "medium", "low"]
-    file_path: str
-    description: str
-    explanation: str
-    metrics: dict = {}
-    line_number: Optional[int] = None  # For inline comments
+    """V2: Backward compatible with V1 and V2 scan data"""
+    # V2 fields (from risk_engine.py)
+    id: Optional[str] = None
+    rule_type: Optional[str] = None  # "Hotspot", "Deep Nesting", "Large File", etc.
+    file_path: Optional[str] = None
+    description: Optional[str] = None
+    explanation: Optional[str] = None
+    metrics: Optional[dict] = {}
+    line_number: Optional[int] = None
+    
+    # V1 fields (for backward compatibility with existing scans)
+    title: Optional[str] = None
+    why_it_matters: Optional[str] = None
+    affected_areas: Optional[List[str]] = []
+    likelihood: Optional[Literal["high", "medium", "low"]] = None
+    recommended_action: Optional[str] = None
+    
+    # Common field (both versions)
+    severity: Literal["critical", "high", "medium", "low"] = "medium"
 
 class AuditSummary(BaseModel):
     maintainability: str

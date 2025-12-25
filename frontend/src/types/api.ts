@@ -132,14 +132,24 @@ export interface Notification {
 
 // Audit types
 export interface RiskItem {
-  id: string;
-  rule_type: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  file_path: string;
+  // V2 fields (from risk_engine.py) - all optional
+  id?: string;
+  rule_type?: string;
+  file_path?: string;
   line_number?: number;
-  description: string;
+  description?: string;
   explanation?: string;
   metrics?: Record<string, any>;
+
+  // V1 fields (backward compatibility) - all optional
+  title?: string;
+  why_it_matters?: string;
+  affected_areas?: string[];
+  likelihood?: 'high' | 'medium' | 'low';
+  recommended_action?: string;
+
+  // Common required field
+  severity: 'critical' | 'high' | 'medium' | 'low';
 }
 
 export interface AuditReport {

@@ -456,13 +456,19 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 
 function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
     const styles = getSeverityStyles(risk.severity);
+
+    // V2 or V1 compatibility: use new fields if available, fall back to old fields
+    const displayTitle = risk.rule_type || risk.title || "Risk";
+    const displayDescription = risk.description || risk.why_it_matters || "";
+    const displayExplanation = risk.explanation || displayDescription;
+
     return (
         <Card className="group relative overflow-hidden transition-all hover:shadow-lg border-border/60">
             <div className={`absolute top-0 left-0 w-1 h-full ${styles.bg.replace('/10', '')}`} />
             <CardHeader className="pb-3 pt-5 px-5">
                 <div className="flex justify-between items-start gap-4">
                     <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                        {risk.rule_type}
+                        {displayTitle}
                     </h3>
                     <Badge variant="outline" className={`${styles.color} ${styles.bg} ${styles.border} uppercase text-[10px] tracking-wider`}>
                         {risk.severity}
@@ -471,17 +477,19 @@ function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-4">
                 <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                    {risk.explanation || risk.description}
+                    {displayExplanation}
                 </p>
 
-                <div className="pt-2 border-t border-border/40">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span>Description</span>
+                {risk.description && (
+                    <div className="pt-2 border-t border-border/40">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span>Description</span>
+                        </div>
+                        <p className="text-sm font-medium text-foreground bg-muted/50 p-3 rounded-md border border-border/40">
+                            {risk.description}
+                        </p>
                     </div>
-                    <p className="text-sm font-medium text-foreground bg-muted/50 p-3 rounded-md border border-border/40">
-                        {risk.description}
-                    </p>
-                </div>
+                )}
 
                 {risk.file_path && (
                     <div className="flex flex-wrap gap-1 pt-1">
@@ -489,6 +497,40 @@ function RiskCard({ risk, index }: { risk: RiskItem; index: number }) {
                             {risk.file_path}
                             {risk.line_number && `:${risk.line_number}`}
                         </span>
+                    </div>
+                )}
+
+                {/* V1 backward compatibility: show affected areas if present */}
+                {risk.affected_areas && risk.affected_areas.length > 0 && (
+                    <div className="pt-2">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">Affected Areas</p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {risk.affected_areas.map((area: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="font-mono text-xs">{area}</Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* V2: Show metrics if present */}
+                {risk.metrics && Object.keys(risk.metrics).length > 0 && (
+                    <div className="pt-2">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">Metrics</p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(risk.metrics).map(([key, value]) => (
+                                <Badge key={key} variant="secondary" className="font-mono text-xs">
+                                    {key}: {typeof value === 'number' ? value : JSON.stringify(value)}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* V1: Show recommended action if present */}
+                {risk.recommended_action && (
+                    <div className="pt-2 border-t">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1.5">Recommended Action</p>
+                        <p className="text-sm">{risk.recommended_action}</p>
                     </div>
                 )}
             </CardContent>
