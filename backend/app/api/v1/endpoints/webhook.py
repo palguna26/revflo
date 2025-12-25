@@ -54,6 +54,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 async def process_webhook_event(event_type: str, payload: dict, full_name: str, owner: str, repo_name: str):
     """
     Async implementation of webhook logic.
+    V2: Full state sync with GitHub
     """
     try:
         # 1. Find Repo in DB
@@ -63,7 +64,6 @@ async def process_webhook_event(event_type: str, payload: dict, full_name: str, 
             return
 
         # 2. Find Valid User Token
-        # Try to find the repo owner first, then fallback to any admin
         user = await User.find_one(User.login == owner)
         if not user or not user.access_token:
             user = await User.find_one(User.access_token != None)
@@ -76,40 +76,171 @@ async def process_webhook_event(event_type: str, payload: dict, full_name: str, 
         if event_type == "pull_request":
             action = payload.get("action")
             pr_number = payload.get("number")
+            pr_data = payload.get("pull_request", {})
+            
             if action in ["opened", "synchronize", "reopened"]:
                 print(f"Webhook: Syncing PR #{pr_number} for {full_name}")
                 await pr_service.get_or_sync_pr(owner, repo_name, pr_number, user)
                 
-                # Check for "re-validation" or initial validation trigger if logic exists?
-                # Scheduler handles pending, but we can trigger it here for faster response.
-                # For now, get_or_sync just saves it. Validation happens via scheduler or manual trigger.
-                pass
+                # V2: Smart invalidation on synchronize (new commits)
+                if action == "synchronize":
+                    await handle_pr_updated(repo_doc, pr_number)
+                    
+            elif action == "closed":
+                merged = pr_data.get("merged", False)
+                print(f"Webhook: PR #{pr_number} {'merged' if merged else 'closed'} for {full_name}")
+                await handle_pr_closed(repo_doc, pr_number, merged)
+                
+            elif action == "reopened":
+                print(f"Webhook: PR #{pr_number} reopened for {full_name}, invalidating analysis")
+                await handle_pr_reopened(repo_doc, pr_number, user)
 
         elif event_type == "issues":
             action = payload.get("action")
             issue_number = payload.get("issue", {}).get("number")
+            
             if action in ["opened", "edited", "reopened"]:
                 print(f"Webhook: Syncing Issue #{issue_number} for {full_name}")
-                # We need a dummy BG task here if the function requires it, 
-                # or modify service to accept None. 
-                # Current issue_service.get_or_sync_issue requires bg_tasks.
-                # We can't pass the request's bg_tasks here since we are ALREADY in a bg task.
-                # We need to run it directly.
-                
-                # Hack: IssueService expects BackgroundTasks to add "generation" task.
-                # We can manually trigger the generation task if needed or mock the bg_tasks.
-                
-                # Simplified: Just fetch and save.
-                # We will call a simplified sync method or mock the bg task behavior.
-                # Let's use a workaround:
                 
                 class MockBG:
                     def add_task(self, func, *args, **kwargs):
-                        # Create generic asyncio task
                         import asyncio
                         asyncio.create_task(func(*args, **kwargs))
                 
                 await issue_service.get_or_sync_issue(owner, repo_name, issue_number, user, MockBG())
+                
+            elif action == "closed":
+                print(f"Webhook: Issue #{issue_number} closed for {full_name}")
+                await handle_issue_closed(repo_doc, issue_number)
+                
+            elif action == "reopened":
+                print(f"Webhook: Issue #{issue_number} reopened for {full_name}")
+                await handle_issue_reopened(repo_doc, issue_number)
 
     except Exception as e:
         print(f"Async Webhook Processing Error: {str(e)}")
+
+
+# V2: State Change Handlers
+
+async def handle_pr_closed(repo_doc: Repo, pr_number: int, merged: bool):
+    """Mark PR as closed/merged and freeze validation state."""
+    from app.models.pr import PullRequest
+    from datetime import datetime
+    
+    pr = await PullRequest.find_one(
+        PullRequest.repo_id == repo_doc.id,
+        PullRequest.pr_number == pr_number
+    )
+    
+    if not pr:
+        return
+    
+    pr.github_state = "closed"
+    pr.closed_at = datetime.utcnow()
+    pr.last_synced_at = datetime.utcnow()
+    
+    if merged:
+        pr.merged = True
+        pr.merged_at = datetime.utcnow()
+        # Freeze health score - it's final
+        print(f"PR #{pr_number} merged with final health score: {pr.health_score}")
+    
+    await pr.save()
+
+
+async def handle_pr_reopened(repo_doc: Repo, pr_number: int, user):
+    """Reopen PR and invalidate all cached analysis."""
+    from app.models.pr import PullRequest
+    from datetime import datetime
+    
+    pr = await PullRequest.find_one(
+        PullRequest.repo_id == repo_doc.id,
+        PullRequest.pr_number == pr_number
+    )
+    
+    if not pr:
+        return
+    
+    # Reopen state
+    pr.github_state = "open"
+    pr.merged = False
+    pr.closed_at = None
+    pr.merged_at = None
+    
+    # INVALIDATE all analysis - force re-validation
+    pr.validation_status = "pending"
+    pr.health_score = 0
+    pr.code_health = []
+    pr.suggested_tests = []
+    pr.summary = None
+    pr.recommended_for_merge = False
+    
+    pr.last_synced_at = datetime.utcnow()
+    await pr.save()
+    
+    print(f"PR #{pr_number} reopened - all analysis invalidated")
+
+
+async def handle_pr_updated(repo_doc: Repo, pr_number: int):
+    """Handle new commits pushed to PR - invalidate validation."""
+    from app.models.pr import PullRequest
+    from datetime import datetime
+    
+    pr = await PullRequest.find_one(
+        PullRequest.repo_id == repo_doc.id,
+        PullRequest.pr_number == pr_number
+    )
+    
+    if not pr:
+        return
+    
+    # Invalidate validation since code changed
+    pr.validation_status = "pending"
+    pr.recommended_for_merge = False
+    pr.last_synced_at = datetime.utcnow()
+    
+    await pr.save()
+    print(f"PR #{pr_number} updated - validation reset to pending")
+
+
+async def handle_issue_closed(repo_doc: Repo, issue_number: int):
+    """Mark issue as closed."""
+    from app.models.issue import Issue
+    from datetime import datetime
+    
+    issue = await Issue.find_one(
+        Issue.repo_id == repo_doc.id,
+        Issue.issue_number == issue_number
+    )
+    
+    if not issue:
+        return
+    
+    issue.github_state = "closed"
+    issue.closed_at = datetime.utcnow()
+    issue.last_synced_at = datetime.utcnow()
+    
+    await issue.save()
+    print(f"Issue #{issue_number} marked as closed")
+
+
+async def handle_issue_reopened(repo_doc: Repo, issue_number: int):
+    """Mark issue as reopened."""
+    from app.models.issue import Issue
+    from datetime import datetime
+    
+    issue = await Issue.find_one(
+        Issue.repo_id == repo_doc.id,
+        Issue.issue_number == issue_number
+    )
+    
+    if not issue:
+        return
+    
+    issue.github_state = "open"
+    issue.closed_at = None
+    issue.last_synced_at = datetime.utcnow()
+    
+    await issue.save()
+    print(f"Issue #{issue_number} reopened")

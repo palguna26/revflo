@@ -92,6 +92,13 @@ class PullRequest(Document):
     coverage_advice: List[CoverageAdvice] = []
     suggested_tests: List[SuggestedTest] = []
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # V2: GitHub state tracking for webhook sync
+    github_state: Literal["open", "closed"] = "open"
+    merged: bool = False
+    merged_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    last_synced_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "pull_requests"

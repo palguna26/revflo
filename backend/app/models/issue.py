@@ -42,6 +42,11 @@ class Issue(Document):
     checklist: List[ChecklistItem] = []
     github_url: str
     description: Optional[str] = None
+    
+    # V2: GitHub state tracking for webhook sync
+    github_state: Literal["open", "closed"] = "open"
+    closed_at: Optional[datetime] = None
+    last_synced_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "issues"
