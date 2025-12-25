@@ -59,9 +59,23 @@ class Orchestrator:
     
     async def _trigger_pr_validation(self, event: InternalEvent):
         """PR opened - run full validation pipeline"""
+        from app.pipelines.pr_validation import pr_validation_pipeline
+        
         pr_number = int(event.entity_id)
-        # TODO: Trigger PR Validation Pipeline
-        print(f"TODO: Run PR validation for PR #{pr_number}")
+        
+        # Get PR from DB
+        pr = await PullRequest.find_one(
+            PullRequest.repo_id == event.repo_id,
+            PullRequest.pr_number == pr_number
+        )
+        
+        if pr:
+            try:
+                # Trigger validation pipeline
+                await pr_validation_pipeline.run(pr)
+                print(f"Orchestrator: PR validation triggered for PR #{pr_number}")
+            except Exception as e:
+                print(f"Orchestrator: PR validation failed for PR #{pr_number}: {e}")
     
     async def _trigger_partial_validation(self, event: InternalEvent):
         """PR updated (new commits) - partial re-validation"""
@@ -78,6 +92,9 @@ class Orchestrator:
             pr.recommended_for_merge = False
             pr.last_synced_at = datetime.utcnow()
             await pr.save()
+            
+            # Could trigger partial re-validation here
+            # await pr_validation_pipeline.run_partial(pr)
     
     async def _freeze_verdict(self, event: InternalEvent):
         """PR closed/merged - freeze final state"""
@@ -166,10 +183,23 @@ class Orchestrator:
             await issue.save()
     
     async def _invalidate_audits(self, event: InternalEvent):
-        """Push to main - invalidate cached audits"""
+        """Push to main - invalidate cached audits and trigger new audit"""
+        from app.pipelines.repo_audit import repo_audit_pipeline
+        from app.models.repo import Repo
+        
         commit_sha = event.entity_id
-        # TODO: Invalidate audit cache for this repo
-        print(f"TODO: Invalidate audits for commit {commit_sha}")
+        
+        # Get repo
+        repo = await Repo.find_one(Repo.id == event.repo_id)
+        
+        if repo:
+            try:
+                # Trigger new audit for this commit
+                branch = event.payload.get("ref", "").split("/")[-1]  # Extract branch name
+                await repo_audit_pipeline.run(repo, commit_sha, branch)
+                print(f"Orchestrator: Audit triggered for commit {commit_sha[:7]}")
+            except Exception as e:
+                print(f"Orchestrator: Audit failed for {commit_sha[:7]}: {e}")
 
 
 # Singleton instance
