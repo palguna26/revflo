@@ -115,22 +115,28 @@ async def populate_data():
         
         print(f"  Creating issues for {r_data['name']}...")
         for i in range(1, 4):
+            # V2: Add github_state and last_synced_at
+            is_open = i != 2  # Issue #2 will be closed for demo
             issue = Issue(
                 repo_id=repo.id,
                 issue_number=i,
                 title=f"Demo Issue {i} for {r_data['name']}",
-                status="open",
+                status="open" if is_open else "completed",
                 created_at=datetime.utcnow() - timedelta(days=i),
                 updated_at=datetime.utcnow(),
                 checklist_summary=IssueChecklistSummary(total=5, passed=3, failed=1, pending=1),
                 checklist=[
                     ChecklistItem(id="1", text="Unit tests included", required=True, status="passed"),
-                    ChecklistItem(id="2", text="Documentation updated", required=True, status="failed"),
+                    ChecklistItem(id="2", text="Documentation updated", required=True, status="failed" if is_open else "passed"),
                     ChecklistItem(id="3", text="Lint check passed", required=True, status="passed"),
                     ChecklistItem(id="4", text="Integration tests", required=False, status="pending"),
                     ChecklistItem(id="5", text="Code review passed", required=True, status="passed"),
                 ],
-                github_url=f"https://github.com/{r_data['full_name']}/issues/{i}"
+                github_url=f"https://github.com/{r_data['full_name']}/issues/{i}",
+                # V2: Control Plane sync fields
+                github_state="open" if is_open else "closed",
+                closed_at=None if is_open else datetime.utcnow() - timedelta(hours=5),
+                last_synced_at=datetime.utcnow() - timedelta(seconds=30)
             )
             await issue.save()
 
@@ -139,24 +145,64 @@ async def populate_data():
         await PullRequest.find(PullRequest.repo_id == repo.id).delete()
 
         print(f"  Creating PRs for {r_data['name']}...")
-        pr = PullRequest(
-            repo_id=repo.id,
-            pr_number=101,
-            title=f"Feature: Add new database schema",
-            author="dev-contributor",
-            created_at=datetime.utcnow() - timedelta(days=1),
-            github_url=f"https://github.com/{r_data['full_name']}/pull/101",
-            health_score=r_data["health_score"],
-            validation_status="validated" if r_data["health_score"] > 80 else "needs_work",
-            test_results=[
-                TestResult(test_id="t1", name="test_db_connection", status="passed", duration_ms=120),
-                TestResult(test_id="t2", name="test_schema_migration", status="passed", duration_ms=450),
-            ],
-            code_health=[
-                CodeHealthIssue(severity="medium", message="Function too long", file_path="db/models.py", line_number=45),
-            ]
-        )
-        await pr.save()
+        
+        # Create multiple PRs with different states for demo
+        prs_to_create = [
+            {
+                "number": 101,
+                "title": "Feature: Add new database schema",
+                "state": "open",
+                "merged": False,
+                "health_score": r_data["health_score"],
+                "validation_status": "validated" if r_data["health_score"] > 80 else "needs_work",
+                "days_ago": 1
+            },
+            {
+                "number": 102,
+                "title": "Fix: Resolve security vulnerability",
+                "state": "closed",
+                "merged": True,
+                "health_score": 95,
+                "validation_status": "validated",
+                "days_ago": 3
+            },
+            {
+                "number": 103,
+                "title": "Refactor: Improve API response time",
+                "state": "open",
+                "merged": False,
+                "health_score": 72,
+                "validation_status": "pending",
+                "days_ago": 0.5
+            }
+        ]
+        
+        for pr_data in prs_to_create:
+            pr = PullRequest(
+                repo_id=repo.id,
+                pr_number=pr_data["number"],
+                title=pr_data["title"],
+                author="dev-contributor",
+                created_at=datetime.utcnow() - timedelta(days=pr_data["days_ago"]),
+                github_url=f"https://github.com/{r_data['full_name']}/pull/{pr_data['number']}",
+                health_score=pr_data["health_score"],
+                validation_status=pr_data["validation_status"],
+                recommended_for_merge=pr_data["health_score"] > 80,
+                test_results=[
+                    TestResult(test_id="t1", name="test_db_connection", status="passed", duration_ms=120),
+                    TestResult(test_id="t2", name="test_schema_migration", status="passed", duration_ms=450),
+                ],
+                code_health=[
+                    CodeHealthIssue(severity="medium", message="Function too long", file_path="db/models.py", line_number=45),
+                ] if pr_data["health_score"] < 90 else [],
+                # V2: Control Plane sync fields
+                github_state=pr_data["state"],
+                merged=pr_data["merged"],
+                merged_at=datetime.utcnow() - timedelta(days=2) if pr_data["merged"] else None,
+                closed_at=datetime.utcnow() - timedelta(days=2) if pr_data["state"] == "closed" else None,
+                last_synced_at=datetime.utcnow() - timedelta(seconds=45)
+            )
+            await pr.save()
 
     # Update user managed repos
     user.managed_repos = created_repo_names
