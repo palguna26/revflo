@@ -14,6 +14,7 @@ import RepoSettings from "./pages/RepoSettings";
 import HealthAnalytics from "./pages/HealthAnalytics";
 
 import AddRepo from "./pages/AddRepo";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           {/* Authenticated Routes wrapped in DashboardLayout */}
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/repo/:owner/:repo" element={<RepoPage />} />
             <Route path="/repo/:owner/:repo/issues/:issueNumber" element={<IssueDetail />} />
             <Route path="/repo/:owner/:repo/prs/:prNumber" element={<PRDetail />} />
