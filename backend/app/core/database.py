@@ -7,6 +7,7 @@ from app.models.issue import Issue
 from app.models.pr import PullRequest
 from app.models.notification import Notification
 from app.models.scan import ScanResult
+from app.models.events import InternalEvent  # V2: Control Plane
 
 async def init_db():
     settings = get_settings()
@@ -21,6 +22,7 @@ async def init_db():
             Issue,
             PullRequest,
             Notification,
-            ScanResult
+            ScanResult,
+            InternalEvent  # V2: Control Plane events
         ]
     )

@@ -10,7 +10,10 @@ router = APIRouter(prefix="/webhook", tags=["webhooks"])
 async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Handle GitHub Webhooks.
-    Respond 200 OK immediately and process in background.
+    
+    V2: Routes events through Control Plane.
+    - EventIngestor: Normalizes GitHub event
+    - Orchestrator: Routes to appropriate pipeline
     """
     try:
         payload = await request.json()
@@ -34,28 +37,33 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         if not full_name:
             return {"status": "ignored"}
 
-        # Add task to background
+        # Add task to background - process through Control Plane
         background_tasks.add_task(
-            process_webhook_event, 
-            event_type, 
-            payload, 
-            full_name, 
-            owner_login, 
-            repo_name
+            process_via_control_plane,
+            event_type,
+            payload,
+            full_name
         )
         
         return {"status": "received"}
         
     except Exception as e:
         print(f"Webhook Error: {e}")
-        # Return 200 even on error to prevent GitHub from retrying endlessly
         return {"status": "error", "message": str(e)}
 
-async def process_webhook_event(event_type: str, payload: dict, full_name: str, owner: str, repo_name: str):
+
+async def process_via_control_plane(event_type: str, payload: dict, full_name: str):
     """
-    Async implementation of webhook logic.
-    V2: Full state sync with GitHub
+    Process webhook via Control Plane.
+    
+    Flow:
+    1. Find repo in DB
+    2. EventIngestor: Normalize GitHub event → InternalEvent
+    3. Orchestrator: Route InternalEvent → Pipeline handlers
     """
+    from app.control_plane.event_ingestor import event_ingestor
+    from app.control_plane.orchestrator import orchestrator
+    
     try:
         # 1. Find Repo in DB
         repo_doc = await Repo.find_one(Repo.repo_full_name == full_name)
@@ -63,62 +71,26 @@ async def process_webhook_event(event_type: str, payload: dict, full_name: str, 
             print(f"Webhook: Repo {full_name} not found in DB. Skipping.")
             return
 
-        # 2. Find Valid User Token
-        user = await User.find_one(User.login == owner)
-        if not user or not user.access_token:
-            user = await User.find_one(User.access_token != None)
+        # 2. Normalize GitHub event → Internal event
+        internal_event = await event_ingestor.process_github_event(
+            event_type,
+            payload,
+            repo_doc.id
+        )
         
-        if not user:
-            print(f"Webhook: No valid user token found for {full_name}.")
+        if not internal_event:
+            # Event type not handled
             return
-
-        # 3. Route Event
-        if event_type == "pull_request":
-            action = payload.get("action")
-            pr_number = payload.get("number")
-            pr_data = payload.get("pull_request", {})
-            
-            if action in ["opened", "synchronize", "reopened"]:
-                print(f"Webhook: Syncing PR #{pr_number} for {full_name}")
-                await pr_service.get_or_sync_pr(owner, repo_name, pr_number, user)
-                
-                # V2: Smart invalidation on synchronize (new commits)
-                if action == "synchronize":
-                    await handle_pr_updated(repo_doc, pr_number)
-                    
-            elif action == "closed":
-                merged = pr_data.get("merged", False)
-                print(f"Webhook: PR #{pr_number} {'merged' if merged else 'closed'} for {full_name}")
-                await handle_pr_closed(repo_doc, pr_number, merged)
-                
-            elif action == "reopened":
-                print(f"Webhook: PR #{pr_number} reopened for {full_name}, invalidating analysis")
-                await handle_pr_reopened(repo_doc, pr_number, user)
-
-        elif event_type == "issues":
-            action = payload.get("action")
-            issue_number = payload.get("issue", {}).get("number")
-            
-            if action in ["opened", "edited", "reopened"]:
-                print(f"Webhook: Syncing Issue #{issue_number} for {full_name}")
-                
-                class MockBG:
-                    def add_task(self, func, *args, **kwargs):
-                        import asyncio
-                        asyncio.create_task(func(*args, **kwargs))
-                
-                await issue_service.get_or_sync_issue(owner, repo_name, issue_number, user, MockBG())
-                
-            elif action == "closed":
-                print(f"Webhook: Issue #{issue_number} closed for {full_name}")
-                await handle_issue_closed(repo_doc, issue_number)
-                
-            elif action == "reopened":
-                print(f"Webhook: Issue #{issue_number} reopened for {full_name}")
-                await handle_issue_reopened(repo_doc, issue_number)
+        
+        print(f"Control Plane: Created {internal_event.event_type} for {full_name}")
+        
+        # 3. Route to orchestrator
+        await orchestrator.route_event(internal_event)
+        
+        print(f"Control Plane: Processed {internal_event.event_type}")
 
     except Exception as e:
-        print(f"Async Webhook Processing Error: {str(e)}")
+        print(f"Control Plane Error: {str(e)}")
 
 
 # V2: State Change Handlers
