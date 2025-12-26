@@ -47,7 +47,29 @@ const RepoPage = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    try {
+      // Sync issues from GitHub
+      await api.syncIssues(owner!, repo!);
+      // Reload local data
+      await loadData();
+
+      // Show success toast if available
+      if (typeof window !== 'undefined' && (window as any).toast) {
+        (window as any).toast({
+          title: 'Data Synced',
+          description: 'Repository data has been refreshed from GitHub.',
+        });
+      }
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      if (typeof window !== 'undefined' && (window as any).toast) {
+        (window as any).toast({
+          title: 'Sync Failed',
+          description: 'Failed to sync data from GitHub.',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -143,7 +165,13 @@ const RepoPage = () => {
                 </a>
               </Button>
 
-              <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh Data
               </Button>
 

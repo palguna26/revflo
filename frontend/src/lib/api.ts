@@ -185,5 +185,12 @@ export const api = {
       body: JSON.stringify({}),
     });
   },
+
+  async syncIssues(owner: string, repo: string): Promise<any> {
+    return request<any>(`/repos/${owner}/${repo}/issues/sync`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
 };
 
