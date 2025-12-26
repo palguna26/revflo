@@ -120,7 +120,8 @@ class EventIngestor:
                 "issue_number": issue_number,
                 "title": issue_data.get("title"),
                 "body": issue_data.get("body"),
-                "state": issue_data.get("state")
+                "state": issue_data.get("state"),
+                "html_url": issue_data.get("html_url")
             }
         )
     

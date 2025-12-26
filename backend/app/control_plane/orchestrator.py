@@ -141,16 +141,74 @@ class Orchestrator:
             await pr.save()
     
     async def _generate_checklist(self, event: InternalEvent):
-        """Issue created - generate checklist via Quantum"""
+        """Issue created - create issue record and generate checklist via Quantum"""
         issue_number = int(event.entity_id)
-        # TODO: Trigger Quantum checklist generation
-        print(f"TODO: Generate checklist for Issue #{issue_number}")
+        
+        # Get or create Issue document
+        issue = await Issue.find_one(
+            Issue.repo_id == event.repo_id,
+            Issue.issue_number == issue_number
+        )
+        
+        if not issue:
+            # Create new issue record
+            issue = Issue(
+                repo_id=event.repo_id,
+                issue_number=issue_number,
+                title=event.payload.get("title", ""),
+                description=event.payload.get("body", ""),
+                status="open",
+                github_url=event.payload.get("html_url", ""),
+                github_state="open",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                last_synced_at=datetime.utcnow(),
+                checklist=[],
+                checklist_summary={"total": 0, "passed": 0, "failed": 0, "pending": 0}
+            )
+            await issue.save()
+            print(f"Orchestrator: Created Issue #{issue_number}")
+        
+        # Generate checklist in background
+        from app.services.issue_service import issue_service
+        try:
+            await issue_service.generate_checklist_now(issue)
+            print(f"Orchestrator: Generated checklist for Issue #{issue_number}")
+        except Exception as e:
+            print(f"Orchestrator: Checklist generation failed for Issue #{issue_number}: {e}")
     
     async def _regenerate_checklist(self, event: InternalEvent):
-        """Issue edited - regenerate checklist if needed"""
+        """Issue edited - update issue record and regenerate checklist if needed"""
         issue_number = int(event.entity_id)
-        # TODO: Check if checklist needs regeneration
-        print(f"TODO: Check checklist update for Issue #{issue_number}")
+        
+        # Get or create Issue document
+        issue = await Issue.find_one(
+            Issue.repo_id == event.repo_id,
+            Issue.issue_number == issue_number
+        )
+        
+        if issue:
+            # Update existing issue
+            old_title = issue.title
+            old_desc = issue.description
+            
+            issue.title = event.payload.get("title", issue.title)
+            issue.description = event.payload.get("body", issue.description)
+            issue.updated_at = datetime.utcnow()
+            issue.last_synced_at = datetime.utcnow()
+            await issue.save()
+            
+            # Regenerate checklist if title or description changed significantly
+            if issue.title != old_title or issue.description != old_desc:
+                from app.services.issue_service import issue_service
+                try:
+                    await issue_service.generate_checklist_now(issue)
+                    print(f"Orchestrator: Regenerated checklist for Issue #{issue_number}")
+                except Exception as e:
+                    print(f"Orchestrator: Checklist regeneration failed for Issue #{issue_number}: {e}")
+        else:
+            # Issue not found, create it (fallback)
+            await self._generate_checklist(event)
     
     async def _mark_issue_closed(self, event: InternalEvent):
         """Issue closed - update state"""
