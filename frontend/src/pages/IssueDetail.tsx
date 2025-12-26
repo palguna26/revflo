@@ -136,16 +136,16 @@ const IssueDetail = () => {
         {/* Breadcrumb */}
         <div className="mb-6">
           <Link
-            to={`/ repo / ${owner}/${repo}`}
+            to={`/repo/${owner}/${repo}`}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to {owner}/{repo}
-          </Link >
-        </div >
+          </Link>
+        </div>
 
         {/* Issue Header */}
-        < div className="mb-8" >
+        <div className="mb-8">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
@@ -204,10 +204,10 @@ const IssueDetail = () => {
               </div>
             </CardContent>
           </Card>
-        </div >
+        </div>
 
         {/* Checklist */}
-        < Card className="glass-card mb-8" >
+        <Card className="glass-card mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Quality Checklist</CardTitle>
@@ -262,10 +262,10 @@ const IssueDetail = () => {
               </p>
             )}
           </CardContent>
-        </Card >
+        </Card>
 
         {/* Metadata */}
-        < Card className="glass-card" >
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle>Issue Details</CardTitle>
           </CardHeader>
@@ -283,9 +283,9 @@ const IssueDetail = () => {
               <span>{total}</span>
             </div>
           </CardContent>
-        </Card >
-      </main >
-    </div >
+        </Card>
+      </main>
+    </div>
   );
 };
 
