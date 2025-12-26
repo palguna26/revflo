@@ -10,13 +10,14 @@ interface PRCardProps {
   healthScore: number;
   repoOwner: string;
   repoName: string;
-  validationStatus: 'pending' | 'validated' | 'needs_work';
+  validationStatus: 'pending' | 'validated' | 'needs_work' | 'needs_manual_review';
 }
 
 const statusConfig = {
   pending: { color: 'bg-warning/10 text-warning border-warning/20', label: 'Pending' },
   validated: { color: 'bg-success/10 text-success border-success/20', label: 'Validated' },
   needs_work: { color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Needs Work' },
+  needs_manual_review: { color: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Manual Review' },
 };
 
 export const PRCard = ({ prNumber, title, author, healthScore, repoOwner, repoName, validationStatus, compact }: PRCardProps & { compact?: boolean }) => {
