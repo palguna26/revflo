@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, Sparkles, LogOut, Command } from 'lucide-react';
+import { Github, Sparkles, LogOut, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,7 +28,7 @@ export const Header = ({ user, repos, loading }: HeaderProps) => {
         <div className="flex items-center gap-6">
           <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2 font-semibold">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Command className="h-5 w-5" />
+              <Workflow className="h-5 w-5" />
             </div>
             <span className="hidden sm:inline-block">RevFlo</span>
           </Link>

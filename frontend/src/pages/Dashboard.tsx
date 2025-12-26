@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-// Header removed
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, GitPullRequest, FileText, Plus, ExternalLink, RefreshCw } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { User, RepoSummary, PRSummary, Issue } from '@/types/api';
 import { PRCard } from '@/components/PRCard';
 import { IssueCard } from '@/components/IssueCard';
+import { RepoCard } from '@/components/RepoCard';
+import { ManageReposDialog } from '@/components/ManageReposDialog';
 
 import { useOutletContext } from 'react-router-dom';
 import type { DashboardContextType } from '@/layouts/DashboardLayout';
@@ -17,22 +17,9 @@ import type { DashboardContextType } from '@/layouts/DashboardLayout';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, repos, setUser, setRepos } = useOutletContext<DashboardContextType>();
-  // Local state for dashboard-specific things
+
   const [recentPRs, setRecentPRs] = useState<PRSummary[]>([]);
   const [recentIssues, setRecentIssues] = useState<Issue[]>([]);
-  const [savingRepos, setSavingRepos] = useState(false);
-  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (user && repos.length > 0) {
-      const initialSelection =
-        user.managed_repos && user.managed_repos.length > 0
-          ? user.managed_repos
-          : repos.map((r) => r.repo_full_name);
-      setSelectedRepos(initialSelection);
-    }
-  }, [user, repos]);
 
   useEffect(() => {
     if (repos.length === 0) return;
@@ -48,121 +35,130 @@ const Dashboard = () => {
     loadActivity();
   }, [repos]);
 
-  const handleToggleRepo = (fullName: string) => {
-    setSelectedRepos((prev) =>
-      prev.includes(fullName) ? prev.filter((r) => r !== fullName) : [...prev, fullName],
-    );
-  };
-
-  const handleSaveRepos = async () => {
-    if (!user) return;
-    setSavingRepos(true);
+  const handleAddRepo = async (repoFullName: string) => {
     try {
-      const updatedUser = await api.updateManagedRepos(selectedRepos);
-      setUser(updatedUser);
-      const reposData = await api.getRepos();
-      setRepos(reposData);
-    } catch (e) { console.error(e); } finally { setSavingRepos(false); }
+      await api.addRepo(repoFullName);
+      const updatedRepos = await api.getRepos();
+      setRepos(updatedRepos);
+    } catch (error) {
+      console.error('Failed to add repo:', error);
+    }
   };
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    window.location.reload();
+  const handleRemoveRepo = async (repoFullName: string) => {
+    try {
+      await api.removeRepo(repoFullName);
+      const updatedRepos = await api.getRepos();
+      setRepos(updatedRepos);
+    } catch (error) {
+      console.error('Failed to remove repo:', error);
+    }
   };
-
-
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header removed, provided by Layout */}
-
-
-      <main className="container max-w-5xl mx-auto px-4 py-8">
-        {/* Welcome & Actions */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">My Active Work</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Welcome back, {user?.name || user?.login}. Here are the PRs and Issues requiring your attention.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
-              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button size="sm" onClick={() => navigate('/settings')}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Manage Repositories
-            </Button>
-          </div>
+      <main className="container max-w-6xl mx-auto px-4 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8 pb-6 border-b">
+          <h1 className="text-3xl font-semibold tracking-tight mb-2">
+            Welcome back, {user?.name || user?.login}!
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your repositories and track code quality across your projects.
+          </p>
         </div>
 
-        {/* Active Work Content */}
-        {recentPRs.length === 0 && recentIssues.length === 0 ? (
-          <div className="text-center py-20 border rounded-lg bg-card border-dashed">
-            <h3 className="text-lg font-medium mb-2">No active work found</h3>
-            <p className="text-muted-foreground mb-6">You don't have any recent PRs or assigned issues.</p>
-            <Button onClick={() => navigate('/settings')}>Manage Repositories</Button>
+        {/* Repositories Section */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold tracking-tight">Your Repositories</h2>
+            <ManageReposDialog
+              repos={repos}
+              onAddRepo={handleAddRepo}
+              onRemoveRepo={handleRemoveRepo}
+            />
           </div>
-        ) : (
-          <div className="space-y-8">
-            {/* PRs Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <GitPullRequest className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-medium">Pull Requests</h2>
-              </div>
 
-              <div className="border rounded-lg bg-card overflow-hidden divide-y">
+          {repos.length === 0 ? (
+            <div className="glass-card rounded-xl p-12 text-center">
+              <p className="text-muted-foreground mb-6">No repositories found.</p>
+              <Button asChild>
+                <a
+                  href="https://github.com/apps/revflo/installations/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Install RevFlo
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {repos.map((repo) => (
+                <RepoCard
+                  key={repo.repo_full_name}
+                  repo={repo}
+                  onClick={() => navigate(`/repo/${repo.owner}/${repo.name}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Activity Section - Only show if repos exist */}
+        {repos.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Recent Pull Requests */}
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight mb-4">Recent Pull Requests</h2>
+              <div className="space-y-3">
                 {recentPRs.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-muted-foreground">No active pull requests.</div>
+                  <Card className="glass-card p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No recent pull requests</p>
+                  </Card>
                 ) : (
                   recentPRs.map((pr: any) => (
-                    <div key={pr.pr_number} className="p-4 hover:bg-muted/50 transition-colors">
-                      <PRCard
-                        prNumber={pr.pr_number}
-                        title={pr.title}
-                        author={pr.author}
-                        healthScore={pr.health_score}
-                        repoOwner={pr.repo_owner}
-                        repoName={pr.repo_name}
-                        validationStatus={pr.validation_status}
-                        compact={false}
-                      />
-                    </div>
+                    <PRCard
+                      key={`${pr.repo_owner}/${pr.repo_name}/${pr.pr_number}`}
+                      prNumber={pr.pr_number}
+                      title={pr.title}
+                      author={pr.author}
+                      healthScore={pr.health_score}
+                      repoOwner={pr.repo_owner}
+                      repoName={pr.repo_name}
+                      validationStatus={pr.validation_status}
+                    />
                   ))
                 )}
               </div>
             </div>
 
-            {/* Issues Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-medium">Assigned Issues</h2>
-              </div>
-
-              <div className="border rounded-lg bg-card overflow-hidden divide-y">
+            {/* Pending Issues */}
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight mb-4">Pending Issues</h2>
+              <div className="space-y-3">
                 {recentIssues.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-muted-foreground">No assigned issues.</div>
+                  <Card className="glass-card p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No pending issues</p>
+                  </Card>
                 ) : (
                   recentIssues.map((issue: any) => (
-                    <div key={issue.issue_number} className="p-4 hover:bg-muted/50 transition-colors">
-                      <IssueCard
-                        issue={issue}
-                        repoOwner={issue.repo_owner}
-                        repoName={issue.repo_name}
-                        compact={false}
-                      />
-                    </div>
+                    <IssueCard
+                      key={`${issue.repo_owner}/${issue.repo_name}/${issue.issue_number}`}
+                      issue={issue}
+                      repoOwner={issue.repo_owner}
+                      repoName={issue.repo_name}
+                    />
                   ))
                 )}
               </div>
             </div>
           </div>
         )}
-      </main >
-    </div >
+      </main>
+    </div>
   );
 };
 

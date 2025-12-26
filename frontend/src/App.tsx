@@ -10,11 +10,6 @@ import { DashboardLayout } from "./layouts/DashboardLayout";
 import RepoPage from "./pages/RepoPage";
 import IssueDetail from "./pages/IssueDetail";
 import PRDetail from "./pages/PRDetail";
-import RepoSettings from "./pages/RepoSettings";
-import HealthAnalytics from "./pages/HealthAnalytics";
-
-import AddRepo from "./pages/AddRepo";
-import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,13 +27,9 @@ const App = () => (
           {/* Authenticated Routes wrapped in DashboardLayout */}
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/settings" element={<Settings />} />
             <Route path="/repo/:owner/:repo" element={<RepoPage />} />
             <Route path="/repo/:owner/:repo/issues/:issueNumber" element={<IssueDetail />} />
             <Route path="/repo/:owner/:repo/prs/:prNumber" element={<PRDetail />} />
-            <Route path="/repo/:owner/:repo/settings" element={<RepoSettings />} />
-            <Route path="/repo/:owner/:repo/analytics" element={<HealthAnalytics />} />
-            <Route path="/add-repo" element={<AddRepo />} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
