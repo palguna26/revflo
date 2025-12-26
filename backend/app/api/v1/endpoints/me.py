@@ -105,6 +105,7 @@ async def get_recent_activity(current_user: User = Depends(get_current_user)):
                 "author": pr.author,
                 "health_score": pr.health_score or 0,
                 "validation_status": pr.validation_status or "pending",
+                "github_url": pr.github_url,
                 "repo_owner": repo_info["owner"],
                 "repo_name": repo_info["name"],
                 "created_at": pr.created_at
@@ -120,6 +121,8 @@ async def get_recent_activity(current_user: User = Depends(get_current_user)):
                 "status": i.status,
                 "checklist_summary": i.checklist_summary or {"total": 0, "passed": 0, "failed": 0, "pending": 0},
                 "created_at": i.created_at,
+                "updated_at": i.updated_at,
+                "github_url": i.github_url,
                 "repo_owner": repo_info["owner"],
                 "repo_name": repo_info["name"]
             })

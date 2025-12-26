@@ -25,11 +25,16 @@ const Dashboard = () => {
     if (repos.length === 0) return;
     const loadActivity = async () => {
       try {
+        console.log('Loading recent activity for', repos.length, 'repos');
         const activity = await api.getRecentActivity();
-        setRecentPRs(activity.prs);
-        setRecentIssues(activity.issues);
+        console.log('Activity loaded:', activity);
+        setRecentPRs(activity.prs || []);
+        setRecentIssues(activity.issues || []);
       } catch (error) {
         console.error('Activity load failed:', error);
+        // Set empty arrays on error
+        setRecentPRs([]);
+        setRecentIssues([]);
       }
     };
     loadActivity();
