@@ -152,10 +152,18 @@ class AuditScanner:
                 scan.categories.architecture = scan.overall_score
                 scan.categories.dependencies = 70
 
+            # Calculate total lines of code
+            total_loc = sum(m.get('loc', 0) for m in complexity_map.values())
+            
             scan.raw_metrics = {
                 "file_count": len(file_stats),
+                "total_lines": total_loc,
                 "complexity_avg": sum(m.get('complexity', 0) for m in complexity_map.values()) / len(complexity_map) if complexity_map else 0
             }
+            
+            # Store lines_of_code for frontend display
+            scan.lines_of_code = total_loc
+            
             
             # Get commit SHA for cache invalidation (PRD 6.1 requirement)
             try:

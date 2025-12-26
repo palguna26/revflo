@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 from beanie import Document, PydanticObjectId
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, model_validator
 from app.models.audit_schema import Finding, AuditCategories
 
 class RiskItem(BaseModel):
@@ -33,6 +33,26 @@ class AuditSummary(BaseModel):
     code_quality: int = 50  # Added
     architecture: int = 50  # Added
     overview: str
+    
+    @model_validator(mode='before')
+    @classmethod
+    def convert_string_scores(cls, data):
+        """Backward compatibility: convert old string values to integers"""
+        if isinstance(data, dict):
+            # Map old string values to numeric scores
+            string_to_int = {
+                'low': 30,
+                'medium': 50,
+                'high': 80,
+                'excellent': 95
+            }
+            
+            # Convert string scores to integers if needed
+            for field in ['maintainability', 'security', 'performance', 'testing_confidence', 'code_quality', 'architecture']:
+                if field in data and isinstance(data[field], str):
+                    data[field] = string_to_int.get(data[field].lower(), 50)
+        
+        return data
 
 class FragilityMap(BaseModel):
     high_risk_modules: List[str] = []
@@ -82,6 +102,7 @@ class ScanResult(Document):
     # Detailed Results
     categories: AuditCategories = Field(default_factory=AuditCategories)
     findings: List[Finding] = []
+    lines_of_code: int = 0  # Total lines analyzed
     
     # Legacy/Simple Summary
     summary: str = ""
