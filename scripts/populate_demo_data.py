@@ -26,6 +26,7 @@ from app.models.user import User
 from app.models.repo import Repo
 from app.models.issue import Issue, IssueChecklistSummary, ChecklistItem
 from app.models.pr import PullRequest, TestResult, CodeHealthIssue
+from app.models.audit import AuditRun, AuditFinding
 from app.core.config import get_settings
 
 async def populate_data():
@@ -208,7 +209,214 @@ async def populate_data():
     user.managed_repos = created_repo_names
     await user.save()
     
-    print("Done! Demo data populated.")
+    # ========================================
+    # CREATE AUDIT RUNS & FINDINGS (Issue-agnostic)
+    # ========================================
+    print("\nCreating audit runs and findings...")
+    
+    for repo_info in repos_data:
+        repo = await Repo.find_one(Repo.repo_full_name == repo_info["full_name"])
+        if not repo:
+            continue
+            
+        # Delete existing audit runs for clean state
+        await AuditRun.find(AuditRun.repo_id == repo.id).delete()
+        
+        # Create completed audit run
+        print(f"  Creating audit for {repo_info['name']}...")
+        audit_run = AuditRun(
+            repo_id=repo.id,
+            commit_sha=f"abc{repo_info['name'][:3]}123",  # Fake but unique SHA
+            branch="main",
+            status="completed",
+            started_at=datetime.utcnow() - timedelta(hours=1),
+            completed_at=datetime.utcnow() - timedelta(minutes=30),
+            metrics={
+                "critical_count": 2 if repo_info["health_score"] < 60 else 0,
+                "high_count": 4 if repo_info["health_score"] < 80 else 1,
+                "medium_count": 8 if repo_info["health_score"] < 90 else 3,
+                "low_count": 12
+            }
+        )
+        await audit_run.insert()
+        
+        # Generate findings based on repo type
+        findings_templates = []
+        
+        # Security findings (all repos)
+        findings_templates.extend([
+            {
+                "severity": "critical",
+                "category": "security",
+                "rule": "hardcoded_secret",
+                "file_path": "config.py" if repo_info["language"] == "Python" else "config.js",
+                "line_number": 42,
+                "description": "API key hardcoded in configuration file",
+                "recommendation": "Move secrets to environment variables using .env file"
+            },
+            {
+                "severity": "high",
+                "category": "security",
+                "rule": "sql_injection_risk",
+                "file_path": "database/queries.py" if repo_info["language"] == "Python" else "db/queries.ts",
+                "line_number": 156,
+                "description": "Potential SQL injection vulnerability in user input handling",
+                "recommendation": "Use parameterized queries or ORM to prevent SQL injection"
+            }
+        ])
+        
+        if repo_info["health_score"] < 80:
+            # Low health repos get more critical issues
+            findings_templates.append({
+                "severity": "critical",
+                "category": "security",
+                "rule": "exposed_credentials",
+                "file_path": ".env.example",
+                "line_number": 5,
+                "description": "Production credentials committed to version control",
+                "recommendation": "Remove credentials immediately and rotate all exposed secrets"
+            })
+        
+        # Code quality findings
+        findings_templates.extend([
+            {
+                "severity": "medium",
+                "category": "code_quality",
+                "rule": "high_complexity",
+                "file_path": "api/handlers.py" if repo_info["language"] == "Python" else "src/handlers.ts",
+                "line_number": 234,
+                "description": "Function has cyclomatic complexity of 15 (threshold: 10)",
+                "recommendation": "Refactor into smaller functions with single responsibilities"
+            },
+            {
+                "severity": "low",
+                "category": "code_quality",
+                "rule": "code_duplication",
+                "file_path": "utils/helpers.py" if repo_info["language"] == "Python" else "utils/helpers.js",
+                "line_number": 89,
+                "description": "Duplicate code block found in validation logic (12 lines)",
+                "recommendation": "Extract common logic into reusable helper function"
+            },
+            {
+                "severity": "medium",
+                "category": "code_quality",
+                "rule": "long_function",
+                "file_path": "services/processor.py" if repo_info["language"] == "Python" else "services/processor.ts",
+                "line_number": 67,
+                "description": "Function exceeds 200 lines, reducing maintainability",
+                "recommendation": "Break down into smaller, focused functions"
+            }
+        ])
+        
+        # Dependency findings
+        if repo_info["language"] == "Python":
+            findings_templates.extend([
+                {
+                    "severity": "high",
+                    "category": "dependencies",
+                    "rule": "known_cve",
+                    "file_path": "requirements.txt",
+                    "line_number": 8,
+                    "description": "requests==2.25.0 has known CVE-2023-32681",
+                    "recommendation": "Upgrade to requests>=2.31.0 to patch vulnerability"
+                },
+                {
+                    "severity": "medium",
+                    "category": "dependencies",
+                    "rule": "outdated_package",
+                    "file_path": "requirements.txt",
+                    "line_number": 15,
+                    "description": "django==3.1.0 is 24 months old (latest: 4.2.0)",
+                    "recommendation": "Upgrade to latest stable version for security patches"
+                }
+            ])
+        else:  # TypeScript
+            findings_templates.extend([
+                {
+                    "severity": "high",
+                    "category": "dependencies",
+                    "rule": "known_cve",
+                    "file_path": "package.json",
+                    "line_number": 12,
+                    "description": "axios@0.21.1 has known CVE-2021-3749",
+                    "recommendation": "Upgrade to axios>=0.21.2 to fix vulnerability"
+                },
+                {
+                    "severity": "low",
+                    "category": "dependencies",
+                    "rule": "deprecated_package",
+                    "file_path": "package.json",
+                    "line_number": 18,
+                    "description": "Package 'request' is deprecated and unmaintained",
+                    "recommendation": "Migrate to 'axios' or 'node-fetch' for HTTP requests"
+                }
+            ])
+        
+        # Performance findings
+        findings_templates.extend([
+            {
+                "severity": "medium",
+                "category": "performance",
+                "rule": "n_plus_one_query",
+                "file_path": "api/views.py" if repo_info["language"] == "Python" else "api/routes.ts",
+                "line_number": 45,
+                "description": "N+1 query detected in list endpoint (100+ queries per request)",
+                "recommendation": "Use eager loading or batch queries to reduce database calls"
+            },
+            {
+                "severity": "low",
+                "category": "performance",
+                "rule": "inefficient_loop",
+                "file_path": "utils/data_processor.py" if repo_info["language"] == "Python" else "utils/processor.ts",
+                "line_number": 123,
+                "description": "Nested loop with O(n²) complexity on large dataset",
+                "recommendation": "Use hashmap/dictionary for O(n) lookup instead"
+            }
+        ])
+        
+        # Architecture findings
+        if repo_info["health_score"] < 70:
+            findings_templates.append({
+                "severity": "high",
+                "category": "architecture",
+                "rule": "tight_coupling",
+                "file_path": "core/service.py" if repo_info["language"] == "Python" else "core/service.ts",
+                "line_number": 78,
+                "description": "Business logic tightly coupled with database layer",
+                "recommendation": "Introduce repository pattern to separate concerns"
+            })
+        
+        # Test coverage findings
+        findings_templates.extend([
+            {
+                "severity": "medium",
+                "category": "tests",
+                "rule": "low_coverage",
+                "file_path": "api/auth.py" if repo_info["language"] == "Python" else "src/auth.ts",
+                "line_number": 1,
+                "description": "Authentication module has only 45% test coverage",
+                "recommendation": "Add unit tests for all authentication flows"
+            },
+            {
+                "severity": "low",
+                "category": "tests",
+                "rule": "missing_tests",
+                "file_path": "services/payment.py" if repo_info["language"] == "Python" else "services/payment.ts",
+                "line_number": 1,
+                "description": "Critical payment logic has no test coverage",
+                "recommendation": "Add comprehensive test suite for payment processing"
+            }
+        ])
+        
+        # Store findings
+        for finding_data in findings_templates:
+            finding = AuditFinding(
+                audit_run_id=audit_run.id,
+                **finding_data
+            )
+            await finding.insert()
+    
+    print("Done! Demo data populated with audit findings.")
 
 if __name__ == "__main__":
     if sys.platform == "win32":
