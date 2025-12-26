@@ -104,7 +104,11 @@ class RiskEngine:
             if self.config.is_rule_enabled("no_tests"):
                 min_loc = self.config.get_threshold("no_tests", "min_loc")
                 
-                if loc > min_loc and not file.get('has_test', False):
+                # Skip if this IS a test file itself
+                path_lower = path.lower()
+                is_test_file = 'test' in path_lower or 'spec' in path_lower
+                
+                if not is_test_file and loc > min_loc and not file.get('has_test', False):
                     findings.append(RiskItem(
                         id=str(uuid.uuid4()),
                         rule_type="No Tests",
