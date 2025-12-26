@@ -58,7 +58,7 @@ class PRDetailData(BaseModel):
     author: str
     created_at: datetime
     health_score: int
-    validation_status: Literal["pending", "validated", "needs_work"]
+    validation_status: Literal["pending", "validated", "needs_work", "needs_manual_review"]
     manifest: Optional[PRManifest] = None
     test_results: List[TestResult] = []
     code_health: List[CodeHealthIssue] = []
@@ -78,7 +78,7 @@ class PullRequest(Document):
     
     # Analysis fields
     health_score: int = 0
-    validation_status: Literal["pending", "validated", "needs_work"] = "pending"
+    validation_status: Literal["pending", "validated", "needs_work", "needs_manual_review"] = "pending"
     block_reason: Optional[Literal["BLOCK_CHECKLIST_FAILED", "BLOCK_INDETERMINATE_EVIDENCE", "BLOCK_SECURITY_CRITICAL", "BLOCK_INSUFFICIENT_ISSUE_SPEC"]] = None
     revalidate_requested_at: Optional[datetime] = None
     recommended_for_merge: bool = False

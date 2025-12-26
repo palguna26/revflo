@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import {
     Settings2,
     Search,
@@ -17,8 +18,10 @@ import {
     ExternalLink,
     Trash2,
     Plus,
+    Loader2,
 } from 'lucide-react';
 import type { RepoSummary } from '@/types/api';
+import { api } from '@/lib/api';
 
 interface ManageReposDialogProps {
     repos: RepoSummary[];
@@ -29,18 +32,80 @@ interface ManageReposDialogProps {
 export const ManageReposDialog = ({ repos, onAddRepo, onRemoveRepo }: ManageReposDialogProps) => {
     const [activeTab, setActiveTab] = useState<'connected' | 'add'>('connected');
     const [searchQuery, setSearchQuery] = useState('');
+    const [availableRepos, setAvailableRepos] = useState<any[]>([]);
+    const [loadingAvailable, setLoadingAvailable] = useState(false);
+    const { toast } = useToast();
 
-    // In a real implementation, this would come from an API
-    // For now, we'll just show the repos we already have
+    // Fetch available repos when Add tab is opened
+    useEffect(() => {
+        if (activeTab === 'add' && availableRepos.length === 0) {
+            loadAvailableRepos();
+        }
+    }, [activeTab]);
+
+    const loadAvailableRepos = async () => {
+        setLoadingAvailable(true);
+        try {
+            const available = await api.getAvailableRepos();
+            // Filter out already connected repos
+            const notConnected = available.filter(
+                (repo: any) => !repos.some(r => r.repo_full_name === repo.full_name)
+            );
+            setAvailableRepos(notConnected);
+        } catch (error) {
+            console.error('Failed to load available repos:', error);
+            toast({
+                title: 'Failed to Load Repositories',
+                description: 'Unable to fetch available repositories from GitHub.',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoadingAvailable(false);
+        }
+    };
+
+    const handleAddRepo = async (repoFullName: string) => {
+        try {
+            await onAddRepo?.(repoFullName);
+            // Remove from available list
+            setAvailableRepos(prev => prev.filter(r => r.full_name !== repoFullName));
+            toast({
+                title: 'Repository Added',
+                description: `${repoFullName} has been added to your workspace.`,
+            });
+        } catch (error) {
+            toast({
+                title: 'Failed to Add Repository',
+                description: 'Please try again.',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleRemoveRepo = async (repoFullName: string) => {
+        try {
+            await onRemoveRepo?.(repoFullName);
+            toast({
+                title: 'Repository Removed',
+                description: `${repoFullName} has been removed from your workspace.`,
+            });
+        } catch (error) {
+            toast({
+                title: 'Failed to Remove Repository',
+                description: 'Please try again.',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    // Filter repos
     const connectedRepos = repos.filter((r) => r.is_installed);
-    const availableRepos: RepoSummary[] = []; // Would come from GitHub API
-
     const filteredConnected = connectedRepos.filter((repo) =>
         repo.repo_full_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const filteredAvailable = availableRepos.filter((repo) =>
-        repo.repo_full_name.toLowerCase().includes(searchQuery.toLowerCase())
+        repo.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -140,7 +205,7 @@ export const ManageReposDialog = ({ repos, onAddRepo, onRemoveRepo }: ManageRepo
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => onRemoveRepo?.(repo.repo_full_name)}
+                                                onClick={() => handleRemoveRepo(repo.repo_full_name)}
                                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -152,7 +217,11 @@ export const ManageReposDialog = ({ repos, onAddRepo, onRemoveRepo }: ManageRepo
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {availableRepos.length === 0 ? (
+                            {loadingAvailable ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : filteredAvailable.length === 0 ? (
                                 <div className="space-y-4">
                                     <div className="text-center py-8 text-muted-foreground">
                                         <p>All available repositories are already connected.</p>
@@ -180,22 +249,22 @@ export const ManageReposDialog = ({ repos, onAddRepo, onRemoveRepo }: ManageRepo
                                 <>
                                     {filteredAvailable.map((repo) => (
                                         <div
-                                            key={repo.repo_full_name}
+                                            key={repo.full_name}
                                             className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <Github className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                                                 <div className="min-w-0">
-                                                    <span className="font-medium truncate block">{repo.repo_full_name}</span>
+                                                    <span className="font-medium truncate block">{repo.full_name}</span>
                                                     <p className="text-xs text-muted-foreground truncate">
-                                                        Available to connect
+                                                        {repo.description || 'Available to connect'}
                                                     </p>
                                                 </div>
                                             </div>
                                             <Button
                                                 variant="default"
                                                 size="sm"
-                                                onClick={() => onAddRepo?.(repo.repo_full_name)}
+                                                onClick={() => handleAddRepo(repo.full_name)}
                                             >
                                                 Add
                                             </Button>

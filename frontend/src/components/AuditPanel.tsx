@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import {
     AlertCircle,
     AlertTriangle,
@@ -15,6 +16,7 @@ import {
     ChevronDown,
     ChevronRight,
     Download,
+    RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -85,6 +87,73 @@ const categoryConfig = {
 };
 
 type TabFilter = 'all' | 'security' | 'code-quality' | 'anti-patterns' | 'dead-code' | 'documentation' | 'complexity';
+
+// Helper function to map backend severity to frontend format
+const mapSeverity = (severity: string | undefined): AuditIssue['severity'] => {
+    const s = severity?.toLowerCase();
+    if (['critical', 'high', 'medium', 'low', 'info'].includes(s || '')) {
+        return s as AuditIssue['severity'];
+    }
+    return 'medium';
+};
+
+// Helper function to map backend category to frontend format
+const mapCategory = (category: string | undefined): AuditIssue['category'] => {
+    const categoryMap: Record<string, AuditIssue['category']> = {
+        'security': 'security',
+        'code-quality': 'code-quality',
+        'quality': 'code-quality',
+        'maintainability': 'code-quality',
+        'anti-pattern': 'anti-patterns',
+        'antipattern': 'anti-patterns',
+        'anti-patterns': 'anti-patterns',
+        'dead-code': 'dead-code',
+        'deadcode': 'dead-code',
+        'documentation': 'documentation',
+        'docs': 'documentation',
+        'complexity': 'complexity',
+    };
+    const lowerCategory = category?.toLowerCase().replace(/[_\s]/g, '-');
+    return categoryMap[lowerCategory || ''] || 'code-quality';
+};
+
+// Transform backend ScanResult to frontend AuditData format
+const transformScanToAuditData = (scan: any): AuditData => {
+    const issues: AuditIssue[] = [];
+
+    // Extract issues from scan.report.top_risks
+    if (scan?.report?.top_risks && Array.isArray(scan.report.top_risks)) {
+        scan.report.top_risks.forEach((risk: any, index: number) => {
+            // Handle both V1 and V2 formats
+            const title = risk.title || risk.rule_type || risk.description?.substring(0, 100) || 'Issue detected';
+            const description = risk.description || risk.explanation || risk.why_it_matters || '';
+            const suggestion = risk.recommended_action || risk.recommendation || risk.fix || '';
+
+            issues.push({
+                id: risk.id || `risk-${index}`,
+                title,
+                severity: mapSeverity(risk.severity),
+                category: mapCategory(risk.category || risk.rule_type),
+                file_path: risk.file_path || risk.affected_areas?.[0] || 'Unknown',
+                line_number: risk.line_number,
+                description,
+                suggestion,
+            });
+        });
+    }
+
+    // Count issues by type
+    const security_issues = issues.filter(i => i.category === 'security').length;
+    const code_quality_issues = issues.filter(i => i.category === 'code-quality').length;
+
+    return {
+        total_issues: issues.length,
+        security_issues,
+        code_quality_issues,
+        lines_analyzed: scan?.lines_of_code || scan?.raw_metrics?.total_lines || 0,
+        issues,
+    };
+};
 
 const IssueRow = ({ issue }: { issue: AuditIssue }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -158,18 +227,21 @@ const IssueRow = ({ issue }: { issue: AuditIssue }) => {
 export const AuditPanel = ({ repoFullName, healthScore }: AuditPanelProps) => {
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [scanning, setScanning] = useState(false);
     const [activeTab, setActiveTab] = useState<TabFilter>('all');
+    const { toast } = useToast();
 
-    useEffect(() => {
-        const loadAuditData = async () => {
-            try {
-                setLoading(true);
-                const [owner, repo] = repoFullName.split('/');
-                const data = await api.getRepoAudit(owner, repo);
-                setAuditData(data);
-            } catch (error) {
-                console.error('Failed to load audit data:', error);
-                // Set mock data for development
+    const loadAuditData = async () => {
+        try {
+            setLoading(true);
+            const [owner, repo] = repoFullName.split('/');
+            const scanResult = await api.getRepoAudit(owner, repo);
+
+            if (scanResult && scanResult.status === 'completed') {
+                const transformedData = transformScanToAuditData(scanResult);
+                setAuditData(transformedData);
+            } else {
+                // No scan yet or scan not completed - show empty state
                 setAuditData({
                     total_issues: 0,
                     security_issues: 0,
@@ -177,11 +249,69 @@ export const AuditPanel = ({ repoFullName, healthScore }: AuditPanelProps) => {
                     lines_analyzed: 0,
                     issues: [],
                 });
-            } finally {
-                setLoading(false);
             }
-        };
+        } catch (error) {
+            console.error('Failed to load audit data:', error);
+            setAuditData({
+                total_issues: 0,
+                security_issues: 0,
+                code_quality_issues: 0,
+                lines_analyzed: 0,
+                issues: [],
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    const handleTriggerScan = async () => {
+        try {
+            setScanning(true);
+            const [owner, repo] = repoFullName.split('/');
+            await api.triggerAuditScan(owner, repo);
+
+            toast({
+                title: 'Audit Scan Started',
+                description: 'The repository audit is now running. This may take a few minutes.',
+            });
+
+            // Poll for completion (simple approach - check every 5 seconds for 2 minutes)
+            let attempts = 0;
+            const maxAttempts = 24; // 2 minutes total
+            const pollInterval = setInterval(async () => {
+                attempts++;
+                const scanResult = await api.getRepoAudit(owner, repo);
+
+                if (scanResult?.status === 'completed' || scanResult?.status === 'failed' || attempts >= maxAttempts) {
+                    clearInterval(pollInterval);
+                    setScanning(false);
+
+                    if (scanResult?.status === 'completed') {
+                        loadAuditData();
+                        toast({
+                            title: 'Audit Complete',
+                            description: 'The repository audit has finished successfully.',
+                        });
+                    } else if (scanResult?.status === 'failed') {
+                        toast({
+                            title: 'Audit Failed',
+                            description: 'The audit scan encountered an error. Please try again.',
+                            variant: 'destructive',
+                        });
+                    }
+                }
+            }, 5000);
+        } catch (error) {
+            setScanning(false);
+            toast({
+                title: 'Failed to Start Audit',
+                description: 'Unable to trigger audit scan. Please try again.',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    useEffect(() => {
         loadAuditData();
     }, [repoFullName]);
 
@@ -297,6 +427,25 @@ export const AuditPanel = ({ repoFullName, healthScore }: AuditPanelProps) => {
                         <CardTitle className="text-lg">
                             Issues {auditData.total_issues > 0 && <span className="text-muted-foreground">({auditData.total_issues})</span>}
                         </CardTitle>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleTriggerScan}
+                            disabled={scanning}
+                            className="gap-2"
+                        >
+                            {scanning ? (
+                                <>
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    Scanning...
+                                </>
+                            ) : (
+                                <>
+                                    <ShieldAlert className="h-3.5 w-3.5" />
+                                    Run Audit
+                                </>
+                            )}
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

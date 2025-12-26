@@ -26,7 +26,7 @@ export interface PRSummary {
   author: string;
   created_at: string;
   health_score: number;
-  validation_status: 'pending' | 'validated' | 'needs_work';
+  validation_status: 'pending' | 'validated' | 'needs_work' | 'needs_manual_review';
   merge_decision?: boolean;
   block_reason?: 'BLOCK_CHECKLIST_FAILED' | 'BLOCK_INDETERMINATE_EVIDENCE' | 'BLOCK_SECURITY_CRITICAL' | 'BLOCK_INSUFFICIENT_ISSUE_SPEC' | null;
   github_url: string;
@@ -118,7 +118,7 @@ export interface PRDetail {
   author: string;
   created_at: string;
   health_score: number;
-  validation_status: 'pending' | 'validated' | 'needs_work';
+  validation_status: 'pending' | 'validated' | 'needs_work' | 'needs_manual_review';
   merge_decision?: boolean;
   block_reason?: 'BLOCK_CHECKLIST_FAILED' | 'BLOCK_INDETERMINATE_EVIDENCE' | 'BLOCK_SECURITY_CRITICAL' | 'BLOCK_INSUFFICIENT_ISSUE_SPEC' | null;
   manifest?: {
