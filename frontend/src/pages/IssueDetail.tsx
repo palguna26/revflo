@@ -28,20 +28,36 @@ const IssueDetail = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!owner || !repo || !issueNumber) return;
+      if (!owner || !repo || !issueNumber) {
+        console.error('Missing params:', { owner, repo, issueNumber });
+        return;
+      }
 
       try {
+        console.log('Loading issue data for:', { owner, repo, issueNumber });
+
         const [userData, reposData, issueData] = await Promise.all([
           api.getMe(),
           api.getRepos(),
           api.getIssue(owner, repo, parseInt(issueNumber)),
         ]);
 
+        console.log('Loaded data:', {
+          user: userData,
+          repos: reposData?.length,
+          issue: issueData
+        });
+
         setUser(userData);
         setRepos(reposData);
         setIssue(issueData);
       } catch (error) {
         console.error('Failed to load issue data:', error);
+        // Log the full error details
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+        }
       } finally {
         setLoading(false);
       }
@@ -116,6 +132,7 @@ const IssueDetail = () => {
   }
 
   if (!issue || !owner || !repo) {
+    console.error('Missing data:', { issue: !!issue, owner: !!owner, repo: !!repo });
     return (
       <div className="min-h-screen bg-background">
         <main className="container px-4 py-8">
@@ -127,7 +144,9 @@ const IssueDetail = () => {
     );
   }
 
-  const { passed, failed, pending, total } = issue.checklist_summary;
+  console.log('Rendering issue:', issue);
+
+  const { passed = 0, failed = 0, pending = 0, total = 0 } = issue.checklist_summary || {};
   const completionPercentage = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   return (

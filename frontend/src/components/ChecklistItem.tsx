@@ -11,10 +11,11 @@ const statusConfig = {
   failed: { icon: XCircle, color: 'text-destructive', bgColor: 'bg-destructive/10' },
   pending: { icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10' },
   skipped: { icon: Circle, color: 'text-muted-foreground', bgColor: 'bg-muted/10' },
+  indeterminate: { icon: Circle, color: 'text-muted-foreground', bgColor: 'bg-muted/10' },
 };
 
 export const ChecklistItem = ({ item }: ChecklistItemProps) => {
-  const status = statusConfig[item.status];
+  const status = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
 
   return (
