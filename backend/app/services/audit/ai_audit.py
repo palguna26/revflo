@@ -37,32 +37,57 @@ class AuditAI:
         SOURCE CODE SNIPPETS (For context only):
         {json.dumps(snippets, indent=2)}
 
+        REPOSITORY CONTEXT:
+        {json.dumps(repo_context, indent=2)}
+
         INSTRUCTIONS:
-        1. "Executive Summary": Summarize the overall health based on the finding severity and count.
-        2. "Explainer": For the top findings, explain WHY the metrics (Complexity, Churn, etc.) are problematic for that specific code. Use the snippets to give concrete examples.
-        3. "Roadmap": Generate a remedial action for each finding. 
-           CRITICAL: logic must be 1:1. Finding A -> Fix A. Do NOT invent new tasks.
+        1. "Executive Summary": Analyze the findings and generate health scores (0-100) for each dimension:
+           - maintainability: Based on complexity, code organization, readability (higher is better)
+           - security: Based on security-related findings (higher is better)  
+           - performance: Inferred from complexity and architectural issues (higher is better)
+           - testing_confidence: Based on test coverage findings (higher is better)
+           - code_quality: Based on code quality issues, patterns, and maintainability (higher is better)
+           - architecture: Based on structural issues, coupling, module organization (higher is better)
+        
+        2. "Explainer": For the top findings, explain WHY the metrics (Complexity, Churn, etc.) are problematic.
+        
+        3. "Roadmap": Generate remedial actions categorized by urgency.
+
+        SCORING GUIDANCE:
+        - 90-100: Excellent, minimal issues
+        - 70-89: Good, minor improvements needed
+        - 50-69: Moderate, noticeable issues to address
+        - 30-49: Poor, significant problems
+        - 0-29: Critical, major refactoring required
+        
+        Consider the severity and count of findings:
+        - Each Critical finding: -15 points from baseline
+        - Each High finding: -10 points
+        - Each Medium finding: -5 points
+        - Each Low finding: -2 points
 
         OUTPUT CONTRACT (JSON ONLY):
         {{
             "summary": {{
-                "maintainability": "low"|"medium"|"high", # Infer from finding severity
-                "security": "low"|"medium"|"high",
-                "performance": "low"|"medium"|"high",
-                "testing_confidence": "low"|"medium"|"high",
-                "overview": "Short executive summary explaining the score."
+                "maintainability": 75,  # INTEGER 0-100
+                "security": 85,         # INTEGER 0-100
+                "performance": 70,      # INTEGER 0-100
+                "testing_confidence": 60, # INTEGER 0-100
+                "code_quality": 75,     # INTEGER 0-100
+                "architecture": 80,     # INTEGER 0-100
+                "overview": "Short executive summary explaining the overall health."
             }},
             "fragility_map": {{
                 "high_risk_modules": ["file1", "file2"], # Must match finding files
                 "change_sensitive_areas": []
             }},
-            "security_reliability": [], # Leave empty unless you see explicit security risks in findings
+            "security_reliability": [], # Add items ONLY if you see explicit security risks
             "roadmap": {{
-                "fix_now": ["Action for Critical Finding 1", "Action for Critical Finding 2"],
-                "fix_next": ["Action for High Finding 1"],
-                "defer": ["Action for Medium/Low Findings"]
+                "fix_now": ["Action for Critical/High Findings"],
+                "fix_next": ["Action for Medium Findings"],
+                "defer": ["Action for Low Findings or improvements"]
             }},
-            "executive_takeaway": "One powerful sentence summary."
+            "executive_takeaway": "One powerful sentence summarizing the audit results."
         }} 
         """
 
@@ -95,8 +120,12 @@ class AuditAI:
     def _fallback_report(self, message: str) -> AuditReport:
         return AuditReport(
             summary=AuditSummary(
-                maintainability="medium", security="medium", 
-                performance="medium", testing_confidence="medium", 
+                maintainability=50, 
+                security=50, 
+                performance=50, 
+                testing_confidence=50,
+                code_quality=50,
+                architecture=50,
                 overview=message
             ),
             top_risks=[],

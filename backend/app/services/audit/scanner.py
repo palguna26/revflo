@@ -133,13 +133,24 @@ class AuditScanner:
             report = await self.ai_service.generate_insights(top_risks, repo_context, snippets)
             scan.report = report           
 
-            # Set Categories (Heuristic mapping for now, can be refined)
-            scan.categories.maintainability = scan.overall_score
-            scan.categories.security = scan.overall_score # Placeholder until security scanner integrated
-            scan.categories.performance = 80 # Default
-            scan.categories.code_quality = scan.overall_score
-            scan.categories.architecture = scan.overall_score
-            scan.categories.dependencies = 70
+            # Set Categories from AI-generated summary scores
+            # AI now generates numeric scores (0-100) for all dimensions
+            if report and report.summary:
+                scan.categories.maintainability = report.summary.maintainability
+                scan.categories.security = report.summary.security
+                scan.categories.performance = report.summary.performance
+                scan.categories.code_quality = report.summary.code_quality
+                scan.categories.architecture = report.summary.architecture
+                # Dependencies score uses overall_score as fallback (no AI assessment for this yet)
+                scan.categories.dependencies = max(50, scan.overall_score)
+            else:
+                # Fallback to heuristics if AI fails
+                scan.categories.maintainability = scan.overall_score
+                scan.categories.security = scan.overall_score
+                scan.categories.performance = 80
+                scan.categories.code_quality = scan.overall_score
+                scan.categories.architecture = scan.overall_score
+                scan.categories.dependencies = 70
 
             scan.raw_metrics = {
                 "file_count": len(file_stats),

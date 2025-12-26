@@ -26,10 +26,12 @@ class RiskItem(BaseModel):
     severity: Literal["critical", "high", "medium", "low"] = "medium"
 
 class AuditSummary(BaseModel):
-    maintainability: str
-    security: str
-    performance: str
-    testing_confidence: str
+    maintainability: int = 50  # 0-100 score
+    security: int = 50
+    performance: int = 50
+    testing_confidence: int = 50
+    code_quality: int = 50  # Added
+    architecture: int = 50  # Added
     overview: str
 
 class FragilityMap(BaseModel):

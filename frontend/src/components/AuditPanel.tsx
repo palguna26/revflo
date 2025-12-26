@@ -17,6 +17,8 @@ import {
     ChevronRight,
     Download,
     RefreshCw,
+    TrendingUp,
+    CheckCircle2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -42,6 +44,35 @@ interface AuditData {
     code_quality_issues: number;
     lines_analyzed: number;
     issues: AuditIssue[];
+    // Category scores (0-100)
+    scores?: {
+        overall?: number;
+        security?: number;
+        performance?: number;
+        code_quality?: number;
+        architecture?: number;
+        maintainability?: number;
+        testing_confidence?: number;
+    };
+    // AI-generated insights
+    report?: {
+        overview?: string;
+        executive_takeaway?: string;
+        fragility_map?: {
+            high_risk_modules?: string[];
+            change_sensitive_areas?: string[];
+        };
+        roadmap?: {
+            fix_now?: string[];
+            fix_next?: string[];
+            defer?: string[];
+        };
+        security_reliability?: Array<{
+            finding: string;
+            severity: string;
+            context: string;
+        }>;
+    };
 }
 
 const severityConfig = {
@@ -146,12 +177,34 @@ const transformScanToAuditData = (scan: any): AuditData => {
     const security_issues = issues.filter(i => i.category === 'security').length;
     const code_quality_issues = issues.filter(i => i.category === 'code-quality').length;
 
+    // Extract scores from both categories and report.summary
+    const scores = {
+        overall: scan?.overall_score,
+        security: scan?.categories?.security || scan?.report?.summary?.security,
+        performance: scan?.categories?.performance || scan?.report?.summary?.performance,
+        code_quality: scan?.categories?.code_quality || scan?.report?.summary?.code_quality,
+        architecture: scan?.categories?.architecture || scan?.report?.summary?.architecture,
+        maintainability: scan?.categories?.maintainability || scan?.report?.summary?.maintainability,
+        testing_confidence: scan?.report?.summary?.testing_confidence,
+    };
+
+    // Extract AI-generated insights
+    const report = scan?.report ? {
+        overview: scan.report.summary?.overview,
+        executive_takeaway: scan.report.executive_takeaway,
+        fragility_map: scan.report.fragility_map,
+        roadmap: scan.report.roadmap,
+        security_reliability: scan.report.security_reliability,
+    } : undefined;
+
     return {
         total_issues: issues.length,
         security_issues,
         code_quality_issues,
         lines_analyzed: scan?.lines_of_code || scan?.raw_metrics?.total_lines || 0,
         issues,
+        scores,
+        report,
     };
 };
 
@@ -400,6 +453,293 @@ export const AuditPanel = ({ repoFullName, healthScore }: AuditPanelProps) => {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Health Scores Section */}
+            {auditData.scores && Object.values(auditData.scores).some(v => v !== undefined) && (
+                <Card className="glass-card">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            Health Scores
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {auditData.scores.overall !== undefined && (
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">Overall Health</span>
+                                    <span className="text-sm font-bold text-primary">{auditData.scores.overall}/100</span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-primary transition-all"
+                                        style={{ width: `${auditData.scores.overall}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {auditData.scores.security !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <ShieldAlert className="h-4 w-4 text-destructive" />
+                                            Security
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.security}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-destructive transition-all"
+                                            style={{ width: `${auditData.scores.security}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {auditData.scores.performance !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-warning" />
+                                            Performance
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.performance}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-warning transition-all"
+                                            style={{ width: `${auditData.scores.performance}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {auditData.scores.code_quality !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <FileCode className="h-4 w-4 text-primary" />
+                                            Code Quality
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.code_quality}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-primary transition-all"
+                                            style={{ width: `${auditData.scores.code_quality}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {auditData.scores.architecture !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <Layers className="h-4 w-4 text-primary" />
+                                            Architecture
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.architecture}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-primary transition-all"
+                                            style={{ width: `${auditData.scores.architecture}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {auditData.scores.maintainability !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <FileCode className="h-4 w-4 text-success" />
+                                            Maintainability
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.maintainability}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-success transition-all"
+                                            style={{ width: `${auditData.scores.maintainability}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {auditData.scores.testing_confidence !== undefined && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                            <CheckCircle2 className="h-4 w-4 text-success" />
+                                            Testing Confidence
+                                        </span>
+                                        <span className="text-sm font-bold">{auditData.scores.testing_confidence}/100</span>
+                                    </div>
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-success transition-all"
+                                            style={{ width: `${auditData.scores.testing_confidence}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Executive Summary */}
+            {auditData.report?.overview && (
+                <Card className="glass-card border-primary/20">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileCode className="h-5 w-5 text-primary" />
+                            Executive Summary
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p className="text-sm leading-relaxed text-foreground/90">
+                            {auditData.report.overview}
+                        </p>
+                        {auditData.report.executive_takeaway && (
+                            <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                                <p className="text-sm font-medium text-primary">
+                                    💡 {auditData.report.executive_takeaway}
+                                </p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Fragility Map */}
+            {auditData.report?.fragility_map && (auditData.report.fragility_map.high_risk_modules?.length > 0 || auditData.report.fragility_map.change_sensitive_areas?.length > 0) && (
+                <Card className="glass-card border-destructive/20">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-destructive" />
+                            Fragility Map
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {auditData.report.fragility_map.high_risk_modules && auditData.report.fragility_map.high_risk_modules.length > 0 && (
+                            <div>
+                                <h4 className="text-sm font-semibold mb-2 text-destructive">High-Risk Modules</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {auditData.report.fragility_map.high_risk_modules.map((module, idx) => (
+                                        <Badge key={idx} variant="destructive" className="font-mono text-xs">
+                                            {module}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {auditData.report.fragility_map.change_sensitive_areas && auditData.report.fragility_map.change_sensitive_areas.length > 0 && (
+                            <div>
+                                <h4 className="text-sm font-semibold mb-2 text-warning">Change-Sensitive Areas</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {auditData.report.fragility_map.change_sensitive_areas.map((area, idx) => (
+                                        <Badge key={idx} variant="outline" className="font-mono text-xs border-warning/30 text-warning">
+                                            {area}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Security & Reliability Findings */}
+            {auditData.report?.security_reliability && auditData.report.security_reliability.length > 0 && (
+                <Card className="glass-card border-destructive/20">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5 text-destructive" />
+                            Security & Reliability
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {auditData.report.security_reliability.map((item, idx) => (
+                            <div key={idx} className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                                <div className="flex items-start gap-2 mb-2">
+                                    <Badge variant="destructive" className="text-xs">
+                                        {item.severity}
+                                    </Badge>
+                                    <p className="text-sm font-medium flex-1">{item.finding}</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground ml-2">{item.context}</p>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Roadmap */}
+            {auditData.report?.roadmap && (auditData.report.roadmap.fix_now?.length > 0 || auditData.report.roadmap.fix_next?.length > 0 || auditData.report.roadmap.defer?.length > 0) && (
+                <Card className="glass-card">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Layers className="h-5 w-5 text-primary" />
+                            Remediation Roadmap
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {auditData.report.roadmap.fix_now && auditData.report.roadmap.fix_now.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-2 w-2 rounded-full bg-destructive" />
+                                    <h4 className="text-sm font-semibold text-destructive">Fix Now (Critical)</h4>
+                                </div>
+                                <ul className="space-y-2 ml-4">
+                                    {auditData.report.roadmap.fix_now.map((action, idx) => (
+                                        <li key={idx} className="text-sm text-foreground/90 flex items-start gap-2">
+                                            <span className="text-destructive mt-1">•</span>
+                                            <span>{action}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {auditData.report.roadmap.fix_next && auditData.report.roadmap.fix_next.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-2 w-2 rounded-full bg-warning" />
+                                    <h4 className="text-sm font-semibold text-warning">Fix Next (High Priority)</h4>
+                                </div>
+                                <ul className="space-y-2 ml-4">
+                                    {auditData.report.roadmap.fix_next.map((action, idx) => (
+                                        <li key={idx} className="text-sm text-foreground/90 flex items-start gap-2">
+                                            <span className="text-warning mt-1">•</span>
+                                            <span>{action}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {auditData.report.roadmap.defer && auditData.report.roadmap.defer.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                                    <h4 className="text-sm font-semibold text-muted-foreground">Consider Later</h4>
+                                </div>
+                                <ul className="space-y-2 ml-4">
+                                    {auditData.report.roadmap.defer.map((action, idx) => (
+                                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                            <span className="mt-1">•</span>
+                                            <span>{action}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Attention Banner */}
             {criticalOrHighCount > 0 && (
