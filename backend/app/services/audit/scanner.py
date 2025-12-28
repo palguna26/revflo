@@ -234,11 +234,25 @@ class AuditScanner:
     async def _index_files(self, scan_dir: Path) -> List[Dict]:
         stats = []
         for root, _, files in os.walk(scan_dir):
-            if ".git" in root: continue
+            # Skip .git directory
+            if ".git" in root:
+                continue
+            
+            # Skip test directories
+            root_lower = root.lower()
+            if any(pattern in root_lower for pattern in ['test', 'tests', '__test__', '__tests__', 'spec', 'specs']):
+                continue
+                
             for file in files:
                 file_path = Path(root) / file
                 try:
                     rel_path = str(file_path.relative_to(scan_dir)).replace('\\', '/')
+                    
+                    # Skip test files
+                    rel_path_lower = rel_path.lower()
+                    if any(pattern in rel_path_lower for pattern in ['test_', '_test.', 'test.', 'spec_', '_spec.', 'spec.']):
+                        continue
+                    
                     stats.append({
                         "path": rel_path,
                         "size": file_path.stat().st_size,
@@ -260,12 +274,22 @@ class AuditScanner:
         for root, _, files in os.walk(scan_dir):
             if ".git" in root:
                 continue
+            
+            # Skip test directories
+            root_lower = root.lower()
+            if any(pattern in root_lower for pattern in ['test', 'tests', '__test__', '__tests__', 'spec', 'specs']):
+                continue
                 
             for file in files:
                 if file.endswith(('.py', '.js', '.ts', '.java', '.cpp', '.tsx', '.jsx')):
                     try:
                         path = Path(root) / file
                         rel_path = str(path.relative_to(scan_dir)).replace('\\', '/')
+                        
+                        # Skip test files
+                        rel_path_lower = rel_path.lower()
+                        if any(pattern in rel_path_lower for pattern in ['test_', '_test.', 'test.', 'spec_', '_spec.', 'spec.']):
+                            continue
                         
                         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
