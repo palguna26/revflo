@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     secret_key: str = Field(..., alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     environment: str = Field("production", alias="ENVIRONMENT")
+    
+    # V3 Audit Feature Flags (additive - no breaking changes)
+    enable_v3_audit: bool = Field(False, alias="ENABLE_V3_AUDIT")  # Master V3 toggle
+    enable_v3_code_quality: bool = Field(False, alias="ENABLE_V3_CODE_QUALITY")  # Phase 2
 
     class Config:
         env_file = ".env"

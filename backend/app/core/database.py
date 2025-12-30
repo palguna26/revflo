@@ -11,6 +11,9 @@ from app.models.events import InternalEvent  # V2: Control Plane
 from app.models.validation import Checklist, PRRun, Verdict  # V2: PR Validation Pipeline
 from app.models.audit import AuditRun, AuditFinding  # V2: Audit Pipeline
 
+# V3: Staged Multi-Scan Audit (Phase 1)
+from app.models.audit_v3 import AuditRun as AuditRunV3, DimensionScanResult, FileMetricCache
+
 async def init_db():
     settings = get_settings()
     client = AsyncIOMotorClient(settings.mongodb_uri)
@@ -30,6 +33,10 @@ async def init_db():
             PRRun,
             Verdict,
             AuditRun,       # V2: Repo Audit
-            AuditFinding
+            AuditFinding,
+            # V3: Staged Multi-Scan Audit (Phase 1 - Foundation)
+            AuditRunV3,
+            DimensionScanResult,
+            FileMetricCache
         ]
     )
