@@ -10,7 +10,7 @@ from app.models.audit_v3 import AuditRun, DimensionScanResult
 from app.models.repo import Repo
 from app.services.audit.orchestrator_v3 import AuditOrchestratorV3
 from app.core.config import get_settings
-from app.core.auth import get_current_user
+from app.api.v1.endpoints.me import get_current_user
 from app.models.user import User
 import tempfile
 import shutil
